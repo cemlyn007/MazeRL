@@ -73,7 +73,7 @@ if __name__ == "__main__":
                 "metrics/median_reward": np.median(rewards)}
 
 
-    now = datetime.now()
+    now = datetime.now().strftime('%b%d_%H-%M-%S')
     writer = CustomSummaryWriter(log_dir=f"runs/starter_code_runs/{now}")
 
 

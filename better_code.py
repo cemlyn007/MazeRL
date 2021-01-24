@@ -68,7 +68,7 @@ if __name__ == "__main__":
                 "metrics/median_reward": np.median(rewards)}
 
 
-    now = datetime.now()
+    now = datetime.now().strftime('%b%d_%H-%M-%S')
     writer = CustomSummaryWriter(log_dir=f"runs/better_code_runs/{now}")
 
 
@@ -119,6 +119,7 @@ if __name__ == "__main__":
         writer.add_histogram("reward_dist", rewards, episode_number)
         step_losses = np.array(episode_loss_list)
         log("loss", step_losses, episode_number)
+        writer.add_histogram("memory_weights", np.array(rb.weights), episode_number)
         writer.add_hparams(hyperparameters, metrics(rewards))
 
         if display_tools:
