@@ -52,7 +52,8 @@ class Agent:
         return continuous_action
 
     def get_greedy_discrete_action(self, state):
-        state_tensor = torch.tensor(state).unsqueeze(0).to(self.dqn.device)
-        q_values_for_each_action = self.dqn.q_network(state_tensor)
-        best_discrete_action = torch.argmax(q_values_for_each_action, dim=1)
+        with torch.no_grad():
+            state_tensor = torch.tensor(state).unsqueeze(0).to(self.dqn.device)
+            q_values_for_each_action = self.dqn.q_network(state_tensor)
+            best_discrete_action = torch.argmax(q_values_for_each_action, dim=1)
         return best_discrete_action.item()

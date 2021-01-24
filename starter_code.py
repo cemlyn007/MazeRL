@@ -5,7 +5,7 @@ from tqdm import tqdm
 
 from tools.actions_visual_tool import ActionsVisualTool
 from agents import Agent
-from dqns.double_dqn import DoubleDQN
+from discrete_dqns.double_dqn import DoubleDQN
 from tools.greedy_policy_graphics import GreedyPolicyTool
 from environments.random_environment import RandomEnvironment
 from datetime import datetime

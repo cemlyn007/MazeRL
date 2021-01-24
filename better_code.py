@@ -1,10 +1,12 @@
+import os
+
 import cv2
 import numpy as np
 import torch
 from tqdm import tqdm
 
 from agents import Agent
-from dqns.double_dqn import DoubleDQN
+from discrete_dqns.double_dqn import DoubleDQN
 from environments.random_environment import RandomEnvironment
 from replay_buffers import FastPrioritisedExperienceReplayBuffer
 from tensorboard_writer import CustomSummaryWriter
@@ -19,7 +21,7 @@ if __name__ == "__main__":
     torch.manual_seed(random_state)
 
     gamma = .9
-    lr = 7.5e-5
+    lr = 5e-5
     max_capacity = 10000
     batch_size = 512  # 50
     max_steps = 750
@@ -29,7 +31,7 @@ if __name__ == "__main__":
     minimum_epsilon = 0.3
     sampling_eps = 1e-8
 
-    device = torch.device("cuda")
+    device = torch.device("cpu")
     display_game = False
     display_tools = False
 
@@ -67,9 +69,9 @@ if __name__ == "__main__":
                 "metrics/std_reward": np.std(rewards),
                 "metrics/median_reward": np.median(rewards)}
 
-
-    now = datetime.now()
-    writer = CustomSummaryWriter(log_dir=f"runs/better_code_runs/{now}")
+    current_time = datetime.now().strftime('%b%d_%H-%M-%S')
+    log_dir = os.path.join("runs", "better_code_runs", current_time)
+    writer = CustomSummaryWriter(log_dir=log_dir)
 
 
     def log(main_tag, values, episode):
