@@ -1,13 +1,12 @@
-import copy
 import torch
-from .dqn_with_target_network import DQNWithTargetNetwork
+
+from .discrete_dqn_with_target_network import DiscreteDQNWithTargetNetwork
 
 
-class DoubleDQN(DQNWithTargetNetwork):
+class DiscreteDoubleDQN(DiscreteDQNWithTargetNetwork):
 
     def __init__(self, gamma=0.9, lr=0.001, device=None):
         super().__init__(gamma, lr, device)
-        self.target_network = copy.deepcopy(self.q_network)
 
     def compute_losses(self, transitions):
         states = transitions[:, :2]
@@ -16,11 +15,11 @@ class DoubleDQN(DQNWithTargetNetwork):
         next_states = transitions[:, 4:]
         all_q_values = self.q_network(states)
         predicted_q_values = all_q_values.gather(1, actions).flatten(0)
-        target_q_values = self.compute_target_q_values(rewards, next_states)
+        target_q_values = self.compute_q_values_using_target(rewards, next_states)
         loss = self.loss_f(predicted_q_values, target_q_values)
         return loss
 
-    def compute_target_q_values(self, rewards, next_states):
+    def compute_q_values_using_target(self, rewards, next_states):
         q_values = self.q_network(next_states)
         target_q_values = self.target_network(next_states).detach()
         best_discrete_actions = torch.argmax(target_q_values, 1, False)

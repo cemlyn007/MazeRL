@@ -1,0 +1,3 @@
+from .discrete_dqn import DiscreteDQN
+from .discrete_dqn_with_target_network import DiscreteDQNWithTargetNetwork
+from .discrete_double_dqn import DiscreteDoubleDQN

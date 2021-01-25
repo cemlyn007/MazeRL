@@ -1,11 +1,16 @@
+import os
+
 import cv2
 import numpy as np
 import torch
 from tqdm import tqdm
 
-from agents import Agent
-from dqns.double_dqn import DoubleDQN
-from environments.random_environment import RandomEnvironment
+from continuous_agent import ContinuousAgent
+from continuous_dqns import ContinuousDQNWithTargetNetwork, ContinuousDQN, \
+    ContinuousDoubleDQN
+from discrete_agent import DiscreteAgent
+from discrete_dqns import DiscreteDQN, DiscreteDQNWithTargetNetwork
+from environments import RandomEnvironment, BasicEnvironment
 from replay_buffers import FastPrioritisedExperienceReplayBuffer
 from tensorboard_writer import CustomSummaryWriter
 from tools.actions_visual_tool import ActionsVisualTool
@@ -19,29 +24,30 @@ if __name__ == "__main__":
     torch.manual_seed(random_state)
 
     gamma = .9
-    lr = 7.5e-5
+    lr = 5e-4
     max_capacity = 10000
-    batch_size = 512  # 50
-    max_steps = 750
+    batch_size = 64
+    max_steps = 1000  # was 750
     max_episodes = 250
     epsilon = 1.
     delta = 0.0000071
     minimum_epsilon = 0.3
-    sampling_eps = 1e-8
+    sampling_eps = 1e-7
+    weight_decay = 1e-7
 
     device = torch.device("cuda")
     display_game = False
     display_tools = False
 
     environment = RandomEnvironment(display=display_game, magnification=500)
-    dqn = DoubleDQN(gamma, lr, device=device)
-    agent = Agent(environment, dqn, stride=0.02)
+    dqn = ContinuousDoubleDQN(gamma, lr, device=device, weight_decay=weight_decay)
+    agent = ContinuousAgent(environment, dqn, stride=0.02)
     rb = FastPrioritisedExperienceReplayBuffer(max_capacity, batch_size,
                                                sampling_eps, agent)
 
     policy_tool = GreedyPolicyTool(magnification=250, agent=agent,
                                    max_step_num=200)
-    actions_tool = ActionsVisualTool(500, agent, 10)
+    # actions_tool = ActionsVisualTool(500, agent, 10)
 
     hyperparameters = {
         "gamma": gamma,
@@ -68,8 +74,9 @@ if __name__ == "__main__":
                 "metrics/median_reward": np.median(rewards)}
 
 
-    now = datetime.now().strftime('%b%d_%H-%M-%S')
-    writer = CustomSummaryWriter(log_dir=f"runs/better_code_runs/{now}")
+    current_time = datetime.now().strftime('%b%d_%H-%M-%S')
+    log_dir = os.path.join("runs", "continuous_better_code_runs", current_time)
+    writer = CustomSummaryWriter(log_dir=log_dir)
 
 
     def log(main_tag, values, episode):
@@ -114,19 +121,22 @@ if __name__ == "__main__":
                 epsilon = max(epsilon, minimum_epsilon)
                 episodes_iter.set_description(f"Epsilon: {epsilon:.3f}")
 
+            # if display_tools and (step_num % 250 == 0):
+            #     print("Drawing")
+            #     policy_tool.draw()
+            #     policy_tool.show()
+            #     print("Finished Drawing")
+
         rewards = np.array(episode_reward_list)
         log("reward", rewards, episode_number)
         writer.add_histogram("reward_dist", rewards, episode_number)
         step_losses = np.array(episode_loss_list)
         log("loss", step_losses, episode_number)
-        writer.add_histogram("memory_weights", np.array(rb.weights), episode_number)
         writer.add_hparams(hyperparameters, metrics(rewards))
 
         if display_tools:
-            actions_tool.draw()
             policy_tool.draw()
             log_greedy_policy(draw=False)
-            actions_tool.show()
             policy_tool.show()
         else:
             log_greedy_policy()

@@ -1,24 +1,16 @@
 import numpy as np
 import torch
+from abstract_agent import AbstractAgent
 
 
-class Agent:
+class DiscreteAgent(AbstractAgent):
 
     def __init__(self, environment, dqn, stride):
-        self.environment = environment
-        self.dqn = dqn
-        self.state = None
-        self.total_reward = None
-        self.reset()
-
+        super().__init__(environment, dqn)
         self.RIGHT = np.array([stride, 0], dtype=np.float32)
         self.LEFT = np.array([-stride, 0], dtype=np.float32)
         self.UP = np.array([0, stride], dtype=np.float32)
         self.DOWN = np.array([0, -stride], dtype=np.float32)
-
-    def reset(self):
-        self.state = self.environment.reset()
-        self.total_reward = 0.0
 
     def step(self, epsilon=0):
         if epsilon <= np.random.uniform():
@@ -28,15 +20,11 @@ class Agent:
         continuous_action = self._discrete_action_to_continuous(discrete_action)
         next_state, distance_to_goal = self.environment.step(self.state,
                                                              continuous_action)
-        reward = self._compute_reward(distance_to_goal)
+        reward = self.compute_reward(distance_to_goal)
         transition = (self.state, discrete_action, reward, next_state)
         self.state = next_state
         self.total_reward += reward
         return transition, distance_to_goal
-
-    def _compute_reward(self, distance_to_goal):
-        reward = (1 - distance_to_goal).astype(distance_to_goal)
-        return reward
 
     def _discrete_action_to_continuous(self, discrete_action):
         if discrete_action == 0:  # Move right
@@ -52,7 +40,17 @@ class Agent:
         return continuous_action
 
     def get_greedy_discrete_action(self, state):
-        state_tensor = torch.tensor(state).unsqueeze(0).to(self.dqn.device)
-        q_values_for_each_action = self.dqn.q_network(state_tensor)
-        best_discrete_action = torch.argmax(q_values_for_each_action, dim=1)
+        with torch.no_grad():
+            if isinstance(state, torch.Tensor):
+                state_tensor = state.to(self.dqn.device)
+                state_tensor.unsqueeze_(0)
+            else:
+                state_tensor = torch.tensor(state,
+                                            device=self.dqn.device).unsqueeze(0)
+            q_values_for_each_action = self.dqn.q_network(state_tensor)
+            best_discrete_action = torch.argmax(q_values_for_each_action, dim=1)
         return best_discrete_action.item()
+
+    def get_greedy_action(self, state):
+        discrete_action = self.get_greedy_discrete_action(state)
+        return self._discrete_action_to_continuous(discrete_action)

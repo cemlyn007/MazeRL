@@ -3,7 +3,7 @@ import torch
 from collections import deque
 import random
 from replay_buffers import ReplayBuffer
-from agents import Agent
+from abstract_agent import AbstractAgent
 from torch import Tensor
 from numpy import ndarray
 
@@ -11,7 +11,7 @@ from numpy import ndarray
 class SlowPrioritisedExperienceReplayBuffer(ReplayBuffer):
 
     def __init__(self, max_capacity: int, batch_size: int, eps: float,
-                 alpha: float, agent: Agent):
+                 alpha: float, agent: AbstractAgent):
         super().__init__(max_capacity, batch_size)
         self.weights = deque(maxlen=max_capacity)
         self.eps = eps
