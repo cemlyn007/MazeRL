@@ -13,6 +13,7 @@ class GreedyPolicyTool(AbstractGraphics):
         super(GreedyPolicyTool, self).__init__(name, magnification, agent)
         self.image = self.environment.image
         self.max_step_num = max_step_num
+        self.orb_radius = int(0.02 * self.magnification)
 
     def draw_blank_environment(self):
         self.environment.draw_environ()
@@ -35,11 +36,18 @@ class GreedyPolicyTool(AbstractGraphics):
         displayed_state[1] = (self.height * self.magnification
                               - displayed_state[1])
         displayed_state = tuple(displayed_state)
-        # Policy Path
         policy_path = [displayed_state]
+
+        was_training = False
+        if self.dqn.q_network.training:
+            self.dqn.q_network.eval()
+            was_training = True
+
         for i in range(self.max_step_num + 1):
-            discrete_action = self.get_greedy_discrete_action(state)
-            state, distance_to_goal = self.step(state, discrete_action)
+            with torch.no_grad():
+                state_tensor = torch.from_numpy(state).to(self.dqn.device)
+                action = self.agent.get_greedy_action(state_tensor)
+            state, distance_to_goal = self.step(state, action)
             displayed_state = state * self.magnification
             displayed_state[1] = (self.height * self.magnification
                                   - displayed_state[1])
@@ -48,23 +56,11 @@ class GreedyPolicyTool(AbstractGraphics):
             color = (0, green[i], red[i])
             cv2.line(self.image, policy_path[i], policy_path[i + 1],
                      color, thickness)
-        orb_radius = int(0.02 * self.magnification)
-        cv2.circle(self.image, policy_path[0], orb_radius,
-                   self.RED, cv2.FILLED)
-        cv2.circle(self.image, policy_path[-1], orb_radius,
-                   self.GREEN, cv2.FILLED)
-        return self.agent.total_reward
-
-    def get_greedy_discrete_action(self, state):
-        was_training = False
-        if self.dqn.q_network.training:
-            self.dqn.q_network.eval()
-            was_training = True
-        with torch.no_grad():
-            state = torch.tensor(state).to(self.dqn.device)
-            state.unsqueeze_(0)
-            action_values = self.dqn.q_network(state)
-            greedy_action = torch.argmax(action_values).item()
         if was_training:
             self.dqn.q_network.train()
-        return greedy_action
+
+        cv2.circle(self.image, policy_path[0], self.orb_radius,
+                   self.RED, cv2.FILLED)
+        cv2.circle(self.image, policy_path[-1], self.orb_radius,
+                   self.GREEN, cv2.FILLED)
+        return self.agent.total_reward

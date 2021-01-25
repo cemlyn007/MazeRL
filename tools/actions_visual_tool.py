@@ -25,12 +25,6 @@ class ActionsVisualTool(AbstractGraphics):
         self.bgr = np.zeros(colors_shape, dtype=np.uint8)
         self.thickness = max(int(0.002 * self.magnification), 1)
         self.states = self.get_state_space_tensor()
-        # if isinstance(self.environment, RandomEnvironment):
-        #     self.environment_mask = self.get_environment_mask()
-
-    # def draw_blank_environment(self):
-    #     self.environment.draw_environ()
-    #     self.environment.draw_goal()
 
     def generate_grid_mid_points(self):
         x_shift = (self.width * .5) / self.num_of_cells
@@ -137,53 +131,3 @@ class ActionsVisualTool(AbstractGraphics):
         self.draw_triangles()
         self.draw_diagonals()
         self.draw_borders()
-
-        # if isinstance(self.environment, RandomEnvironment):
-        #     self.draw_environment()
-
-    # def get_environment_mask(self):
-    #     mask = np.zeros_like(self.image, dtype=np.uint8)
-    #     mask = cv2.cvtColor(mask, cv2.COLOR_BGR2GRAY)
-    #     for block in self.environment.free_blocks:
-    #         top_left = (int(self.magnification * block[0][0]),
-    #                     int(self.magnification * (1 - block[0][1])))
-    #         bottom_right = (int(self.magnification * block[1][0]),
-    #                         int(self.magnification * (1 - block[1][1])))
-    #         cv2.rectangle(mask, top_left, bottom_right, 255,
-    #                       thickness=cv2.FILLED)
-    #     return mask
-    #
-    # def draw_environment(self):
-    #     self.image = cv2.bitwise_and(self.image, self.image,
-    #                                  mask=self.environment_mask)
-
-    # def update_colors(self):
-    #     was_training = False
-    #     if self.dqn.q_network.training:
-    #         self.dqn.q_network.eval()
-    #         was_training = True
-    #     with torch.no_grad():
-    #         state = self.states.to(self.agent.dqn.device)
-    #         predictions_tensor = self.dqn.q_network(state).cpu()
-    #     if was_training:
-    #         self.dqn.q_network.train()
-    #     all_estimated_q_values = predictions_tensor.view(self.num_of_cells,
-    #                                                      self.num_of_cells,
-    #                                                      4).numpy()
-    #     all_estimated_q_values /= all_estimated_q_values.sum(-1, keepdims=True)
-    #     all_worst_to_best_triangles = np.argsort(all_estimated_q_values, -1)
-    #     all_sorted_q_values = np.take_along_axis(all_estimated_q_values,
-    #                                              all_worst_to_best_triangles,
-    #                                              -1)
-    #     color_diff = 255
-    #     q_values_range = (all_sorted_q_values[:, :, -1]
-    #                       - all_sorted_q_values[:, :, 0])
-    #     gradient = np.expand_dims(color_diff / q_values_range, -1)
-    #     all_pixel_intensities = gradient * (all_sorted_q_values[:, :, :]
-    #                                         - all_sorted_q_values[:, :, [0]])
-    #     all_reds = all_greens = all_pixel_intensities.astype(np.uint8)
-    #     all_blues = np.flip(all_pixel_intensities, -1).astype(np.uint8)
-    #
-    #     self.bgr[:, ..., 0] = all_blues.take(all_worst_to_best_triangles)
-    #     self.bgr[:, ..., 1] = all_greens.take(all_worst_to_best_triangles)
-    #     self.bgr[:, ..., 2] = all_reds.take(all_worst_to_best_triangles)

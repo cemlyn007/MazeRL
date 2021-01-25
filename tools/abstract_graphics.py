@@ -26,10 +26,8 @@ class AbstractGraphics:
         cv2.imshow(self.window_name, self.image)
         cv2.waitKey(1)
 
-    def step(self, state, discrete_action):
-        cont_action = self.agent._discrete_action_to_continuous(discrete_action)
-        next_state, distance_from_goal = self.environment.step(state,
-                                                               cont_action)
+    def step(self, state, action):
+        next_state, distance_from_goal = self.environment.step(state, action)
         return next_state, distance_from_goal
 
     def save_image(self, filename):

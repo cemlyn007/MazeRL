@@ -4,8 +4,8 @@ import torch
 from tqdm import tqdm
 
 from tools.actions_visual_tool import ActionsVisualTool
-from agents import Agent
-from discrete_dqns.double_dqn import DoubleDQN
+from discrete_agent import DiscreteAgent
+from discrete_dqns import DiscreteDQNWithTargetNetwork
 from tools.greedy_policy_graphics import GreedyPolicyTool
 from environments.random_environment import RandomEnvironment
 from datetime import datetime
@@ -21,7 +21,7 @@ if __name__ == "__main__":
     torch.manual_seed(random_state)
 
     gamma = .9
-    lr = 1e-5
+    lr = 1e-4
     max_capacity = 10000
     batch_size = 256  # 50
     max_steps = 750
@@ -37,9 +37,8 @@ if __name__ == "__main__":
     display_tools = False
 
     environment = RandomEnvironment(display=display_game, magnification=500)
-    dqn = DoubleDQN(gamma, lr, device=device)
-    agent = Agent(environment, dqn, stride=0.02)
-    # rb = ReplayBuffer(max_capacity, batch_size)
+    dqn = DiscreteDQNWithTargetNetwork(gamma, lr, device=device)
+    agent = DiscreteAgent(environment, dqn, stride=0.02)
     rb = SlowPrioritisedExperienceReplayBuffer(max_capacity, batch_size,
                                                sampling_eps, alpha, agent)
 
@@ -110,8 +109,8 @@ if __name__ == "__main__":
 
             if len(rb) > batch_size:
                 transitions = rb.batch_sample().to(device)
-                loss = dqn.train_q_network(transitions)
-                episode_loss_list.append(loss)
+                losses = dqn.train_q_network(transitions)
+                episode_loss_list.append(losses.sum())
 
             if epsilon > minimum_epsilon:
                 epsilon -= delta
@@ -121,8 +120,8 @@ if __name__ == "__main__":
         rewards = np.array(episode_reward_list)
         log("reward", rewards, episode_number)
         writer.add_histogram("reward_dist", rewards, episode_number)
-        losses = np.array(episode_loss_list)
-        log("loss", losses, episode_number)
+        step_losses = np.array(episode_loss_list)
+        log("loss", step_losses, episode_number)
         writer.add_hparams(hyperparameters, metrics(rewards))
 
         if display_tools:
