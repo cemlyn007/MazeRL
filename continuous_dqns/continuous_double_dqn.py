@@ -1,5 +1,3 @@
-import copy
-import torch
 from abstract_dqns import AbstractDoubleDQN
 from .continuous_dqn_with_target_network import ContinuousDQNWithTargetNetwork
 

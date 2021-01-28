@@ -1,12 +1,7 @@
 import copy
 
-import torch
-
 from abstract_dqns import AbstractDQNWithTargetNetwork
 from .continuous_dqn import ContinuousDQN
-import numpy as np
-
-TORCH_PI = torch.tensor(np.pi)
 
 
 class ContinuousDQNWithTargetNetwork(ContinuousDQN, AbstractDQNWithTargetNetwork):

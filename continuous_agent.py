@@ -19,7 +19,7 @@ class ContinuousAgent(AbstractAgent):
             angle = self.get_random_angle()
         return angle
 
-    def step(self, epsilon=0):
+    def step(self, epsilon=0.):
         angle = self.sample_angle(epsilon)
         action = self.angle_to_action(angle)
         next_state, distance_to_goal = self.environment.step(self.state, action)

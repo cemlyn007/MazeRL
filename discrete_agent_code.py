@@ -5,17 +5,16 @@ import numpy as np
 import torch
 from tqdm import tqdm
 
-from continuous_agent import ContinuousAgent
-from continuous_dqns import ContinuousDQNWithTargetNetwork, ContinuousDQN, \
-    ContinuousDoubleDQN
-from discrete_agent import DiscreteAgent
-from discrete_dqns import DiscreteDQN, DiscreteDQNWithTargetNetwork
-from environments import RandomEnvironment, BasicEnvironment
-from replay_buffers import FastPrioritisedExperienceReplayBuffer
-from tensorboard_writer import CustomSummaryWriter
 from tools.actions_visual_tool import ActionsVisualTool
+from discrete_agent import DiscreteAgent
+from discrete_dqns import DiscreteDoubleDQN
 from tools.greedy_policy_graphics import GreedyPolicyTool
+from environments.random_environment import RandomEnvironment
 from datetime import datetime
+
+from replay_buffers import FastPrioritisedExperienceReplayBuffer
+
+from tensorboard_writer import CustomSummaryWriter
 
 if __name__ == "__main__":
 
@@ -24,30 +23,31 @@ if __name__ == "__main__":
     torch.manual_seed(random_state)
 
     gamma = .9
-    lr = 5e-4
+    lr = 5e-4  # 5e-4
     max_capacity = 10000
-    batch_size = 64
+    batch_size = 256 * 3
     max_steps = 1000  # was 750
-    max_episodes = 250
+    max_episodes = 75  # was 250
     epsilon = 1.
-    delta = 0.0000071
-    minimum_epsilon = 0.3
+    delta = 0.0000031
+    minimum_epsilon = 0.5
     sampling_eps = 1e-7
     weight_decay = 1e-7
+    tau = 5  # target network episode update rate
 
     device = torch.device("cuda")
     display_game = False
     display_tools = False
 
     environment = RandomEnvironment(display=display_game, magnification=500)
-    dqn = ContinuousDoubleDQN(gamma, lr, device=device, weight_decay=weight_decay)
-    agent = ContinuousAgent(environment, dqn, stride=0.02)
+    dqn = DiscreteDoubleDQN(gamma, lr, weight_decay, device=device)
+    agent = DiscreteAgent(environment, dqn, stride=0.02)
     rb = FastPrioritisedExperienceReplayBuffer(max_capacity, batch_size,
                                                sampling_eps, agent)
 
     policy_tool = GreedyPolicyTool(magnification=250, agent=agent,
                                    max_step_num=200)
-    # actions_tool = ActionsVisualTool(500, agent, 10)
+    actions_tool = ActionsVisualTool(500, agent, 10)
 
     hyperparameters = {
         "gamma": gamma,
@@ -74,9 +74,8 @@ if __name__ == "__main__":
                 "metrics/median_reward": np.median(rewards)}
 
 
-    current_time = datetime.now().strftime('%b%d_%H-%M-%S')
-    log_dir = os.path.join("runs", "continuous_better_code_runs", current_time)
-    writer = CustomSummaryWriter(log_dir=log_dir)
+    now = datetime.now().strftime('%b%d_%H-%M-%S')
+    writer = CustomSummaryWriter(log_dir=f"runs/discrete_agent_runs/{now}")
 
 
     def log(main_tag, values, episode):
@@ -96,16 +95,20 @@ if __name__ == "__main__":
                          dataformats="HWC")
 
 
+    model_path = os.path.join("models", "discrete_models")
+    if not os.path.isdir(model_path):
+        os.makedirs(model_path)
+
     episodes_iter = tqdm(range(max_episodes))
     for episode_number in episodes_iter:
         episode_loss_list = []
         episode_reward_list = []
         agent.reset()
-        if dqn.has_target_network():
+        if dqn.has_target_network() and (episode_number % tau == 0):
             dqn.update_target_network()
         agent.dqn.train()
         for step_num in range(max_steps):
-            transition, _ = agent.step(epsilon)
+            transition, distance_to_goal = agent.step(epsilon)
             state, action, reward, next_state = transition
             rb.store(state, action, reward, next_state)
             episode_reward_list.append(reward)
@@ -113,7 +116,6 @@ if __name__ == "__main__":
             if len(rb) > batch_size:
                 transitions = rb.batch_sample().to(device)
                 losses = dqn.train_q_network(transitions)
-                rb.update_batch_weights(losses)
                 episode_loss_list.append(losses.sum())
 
             if epsilon > minimum_epsilon:
@@ -121,11 +123,20 @@ if __name__ == "__main__":
                 epsilon = max(epsilon, minimum_epsilon)
                 episodes_iter.set_description(f"Epsilon: {epsilon:.3f}")
 
-            # if display_tools and (step_num % 250 == 0):
-            #     print("Drawing")
-            #     policy_tool.draw()
-            #     policy_tool.show()
-            #     print("Finished Drawing")
+            if distance_to_goal < 0.03:
+                break
+
+        agent.dqn.eval()
+        agent.reset()
+        has_reached_goal = False
+        for step_num in range(max_steps):
+            transition, distance_to_goal = agent.step(0.0)
+            state, action, reward, next_state = transition
+            rb.store(state, action, reward, next_state)
+
+            if distance_to_goal < 0.03:
+                has_reached_goal = True
+                break
 
         rewards = np.array(episode_reward_list)
         log("reward", rewards, episode_number)
@@ -133,6 +144,8 @@ if __name__ == "__main__":
         step_losses = np.array(episode_loss_list)
         log("loss", step_losses, episode_number)
         writer.add_hparams(hyperparameters, metrics(rewards))
+        writer.add_scalar("reached_goal", has_reached_goal, episode_number)
+        writer.add_scalar("epsilon", epsilon, episode_number)
 
         if display_tools:
             policy_tool.draw()
@@ -141,5 +154,17 @@ if __name__ == "__main__":
         else:
             log_greedy_policy()
 
+        torch.save(dqn.q_network.state_dict(),
+                   os.path.join(model_path, f"q_networks_state_dict-{episode_number}.pt"))
+        torch.save(dqn.target_network.state_dict(),
+                   os.path.join(model_path, f"target_networks_state_dict-{episode_number}.pt"))
+
+    actions_tool.draw()
+    actions_tool.save_image('actions_visualisation.png')
     policy_tool.draw()
     policy_tool.save_image('greedy_policy_reward.png')
+
+    torch.save(dqn.q_network.state_dict(),
+               os.path.join(model_path, "q_networks_state_dict.pt"))
+    torch.save(dqn.target_network.state_dict(),
+               os.path.join(model_path, "target_networks_state_dict.pt"))

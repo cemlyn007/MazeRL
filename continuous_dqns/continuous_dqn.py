@@ -14,13 +14,14 @@ class ContinuousDQN(AbstractDQN):
         super().__init__(gamma, lr, device)
         self.weight_decay = weight_decay
         self.q_network = Network(2 + 1, 1).to(self.device)
-        self.optimizer = torch.optim.Adam(self.q_network.parameters(), self.lr,
+        self.optimizer = torch.optim.Adam(self.q_network.parameters(),
+                                          lr=self.lr,
+                                          betas=(0.9, 0.975), eps=0.1,
                                           weight_decay=self.weight_decay,
                                           amsgrad=True)
-
         self.cross_entropy_max_iters = 16
-        self.cross_entropy_m = 96
-        self.cross_entropy_n = 32
+        self.cross_entropy_m = 64
+        self.cross_entropy_n = 12
 
     @staticmethod
     def unpack_transitions(transitions):

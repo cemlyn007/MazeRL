@@ -1,12 +1,10 @@
-import copy
-
 from .abstract_dqn import AbstractDQN
 
 
 class AbstractDQNWithTargetNetwork(AbstractDQN):
 
     def __init__(self, gamma=0.9, lr=0.001, device=None):
-        super().__init__(gamma, lr, device)
+        super().__init__(gamma=gamma, lr=lr, device=device)
         self.target_network = None
 
     def update_target_network(self):

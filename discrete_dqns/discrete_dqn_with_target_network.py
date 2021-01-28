@@ -1,3 +1,5 @@
+import copy
+
 import torch
 
 from abstract_dqns import AbstractDQNWithTargetNetwork
@@ -6,14 +8,15 @@ from .discrete_dqn import DiscreteDQN
 
 class DiscreteDQNWithTargetNetwork(AbstractDQNWithTargetNetwork, DiscreteDQN):
 
-    def __init__(self, gamma=0.9, lr=0.001, device=None):
-        super().__init__(gamma, lr, device)
+    def __init__(self, gamma=0.9, lr=0.001, weight_decay=0.0, device=None):
+        AbstractDQNWithTargetNetwork.__init__(self, gamma=gamma, lr=lr,
+                                              device=device)
+        DiscreteDQN.__init__(self, gamma=gamma, lr=lr,
+                             weight_decay=weight_decay, device=device)
+        self.target_network = copy.deepcopy(self.q_network)
 
     def compute_losses(self, transitions):
-        states = transitions[:, :2]
-        actions = transitions[:, 2].long().unsqueeze(-1)
-        rewards = transitions[:, 3]
-        next_states = transitions[:, 4:]
+        states, actions, rewards, next_states = self.unpack_transitions(transitions)
         all_q_values = self.q_network(states)
         predictions = all_q_values.gather(1, actions).flatten(0)
         targets = self.compute_q_values_using_target(rewards, next_states)

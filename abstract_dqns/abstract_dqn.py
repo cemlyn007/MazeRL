@@ -11,7 +11,7 @@ class AbstractDQN(nn.Module):
         self.device = self.choose_device(device)
         self.q_network = None
         self.optimizer = None
-        self.loss_f = torch.nn.MSELoss(reduction="none")
+        self.loss_f = torch.nn.L1Loss(reduction="none")
 
     @staticmethod
     def choose_device(device):
