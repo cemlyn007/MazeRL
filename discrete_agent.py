@@ -37,7 +37,7 @@ class DiscreteAgent(abstract_agent.AbstractAgent):
         elif discrete_action == 3:  # Move down
             continuous_action = self.DOWN
         else:
-            raise ValueError("Unexpected value")
+            raise ValueError('Unexpected value')
         return continuous_action
 
     def get_greedy_discrete_action(self, state):

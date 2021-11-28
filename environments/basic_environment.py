@@ -7,7 +7,7 @@ from environments import abstract_environment
 class BasicEnvironment(abstract_environment.AbstractEnvironment):
 
     def __init__(self, display: bool, magnification: int):
-        super().__init__(display, magnification, "Basic Environment")
+        super().__init__(display, magnification, 'Basic Environment')
         self.init_state = np.array([0.15, 0.15], dtype=np.float32)
         self.goal_state = np.array([0.75, 0.85], dtype=np.float32)
         self.obstacle_space = np.array([[0.3, 0.5], [0.3, 0.6]],

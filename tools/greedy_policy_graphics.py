@@ -10,7 +10,7 @@ class GreedyPolicyTool(tools.abstract_graphics.AbstractGraphics):
     RED = (0, 0, 255)
 
     def __init__(self, magnification, agent, max_step_num=20):
-        name = "Greedy Policy"
+        name = 'Greedy Policy'
         super(GreedyPolicyTool, self).__init__(name, magnification, agent)
         self.image = self.environment.image
         self.max_step_num = max_step_num

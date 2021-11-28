@@ -12,7 +12,7 @@ class DiscreteDQN(dqn.AbstractDQN):
         self.q_network = network.DiscreteNetwork(2, 4).to(self.device)
         self.optimizer = torch.optim.Adam(self.q_network.parameters(), self.lr,
                                           weight_decay=self.weight_decay)
-        self.loss_f = torch.nn.MSELoss(reduction="none")
+        self.loss_f = torch.nn.MSELoss(reduction='none')
 
     @staticmethod
     def unpack_transitions(transitions):

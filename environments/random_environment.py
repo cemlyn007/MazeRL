@@ -7,7 +7,7 @@ from environments import abstract_environment
 class RandomEnvironment(abstract_environment.AbstractEnvironment):
 
     def __init__(self, display, magnification):
-        super().__init__(display, magnification, "Random Environment")
+        super().__init__(display, magnification, 'Random Environment')
         self.free_blocks = None
         self._define_environment_space()
 

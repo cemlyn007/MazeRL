@@ -3,7 +3,7 @@
 Using Deep Q-Learning, the objective here is to train an agent to navigate through a maze. In this implementation, I
 have created agents that can handle discrete or continuous actions.
 
-| ![Alt text](images/discrete_greedy_policy.png?raw=true "Discrete Greedy Policy")  | ![Alt text](images/continuous_greedy_policy.png?raw=true "Continuous Greedy Policy") |
+| ![Alt text](images/discrete_greedy_policy.png?raw=true 'Discrete Greedy Policy')  | ![Alt text](images/continuous_greedy_policy.png?raw=true 'Continuous Greedy Policy') |
 |:---:|:---:|
 
 ## Currently
@@ -28,7 +28,7 @@ Tools:
   grid point. The actions the agent would take are strong yellow, with strong blue being the least preferred action that
   the agent would consider taking.
 
-![Alt text](images/actions_visualisation.png?raw=true "Action Visualisation")
+![Alt text](images/actions_visualisation.png?raw=true 'Action Visualisation')
 
 ## Going Further
 

@@ -10,7 +10,7 @@ class ActionsVisualTool(tools.abstract_graphics.AbstractGraphics):
     BLUE = (255, 0, 0)
 
     def __init__(self, magnification, agent, num_of_cells=10):
-        super().__init__("Actions Qs", magnification, agent)
+        super().__init__('Actions Qs', magnification, agent)
         self.num_of_cells = num_of_cells
         self.image = self.environment.image
         self.grid_centres = self.generate_grid_mid_points()

@@ -13,7 +13,7 @@ import tensorboard_writer
 import tools.greedy_policy_graphics
 from replay_buffers import fast_prioritised_rb
 
-if __name__ == "__main__":
+if __name__ == '__main__':
 
     random_state = 816673
     np.random.seed(random_state)
@@ -33,11 +33,11 @@ if __name__ == "__main__":
     tau = 5  # target network episode update rate
 
     if torch.cuda.is_available():
-        print("Using GPU")
-        device = torch.device("cuda")
+        print('Using GPU')
+        device = torch.device('cuda')
     else:
-        print("Using CPU")
-        device = torch.device("cpu")
+        print('Using CPU')
+        device = torch.device('cpu')
     display_game = False
     display_tools = False
 
@@ -53,41 +53,41 @@ if __name__ == "__main__":
                                                                 max_step_num=200)
 
     hyperparameters = {
-        "gamma": gamma,
-        "lr": lr,
-        "max_capacity": max_capacity,
-        "batch_size": batch_size,
-        "max_steps": max_steps,
-        "max_episodes": max_episodes,
-        "initial_epsilon": epsilon,
-        "epsilon_decay": delta,
-        "minimum_epsilon": minimum_epsilon,
-        "random_state": random_state,
-        "discrete_actions": True,
-        "weighted_replay_buffer": True,
-        "sampling_eps": sampling_eps,
+        'gamma': gamma,
+        'lr': lr,
+        'max_capacity': max_capacity,
+        'batch_size': batch_size,
+        'max_steps': max_steps,
+        'max_episodes': max_episodes,
+        'initial_epsilon': epsilon,
+        'epsilon_decay': delta,
+        'minimum_epsilon': minimum_epsilon,
+        'random_state': random_state,
+        'discrete_actions': True,
+        'weighted_replay_buffer': True,
+        'sampling_eps': sampling_eps,
     }
 
 
     def metrics(rewards):
-        return {"metrics/mean_reward": np.mean(rewards),
-                "metrics/min_reward": np.min(rewards),
-                "metrics/max_reward": np.max(rewards),
-                "metrics/std_reward": np.std(rewards),
-                "metrics/median_reward": np.median(rewards)}
+        return {'metrics/mean_reward': np.mean(rewards),
+                'metrics/min_reward': np.min(rewards),
+                'metrics/max_reward': np.max(rewards),
+                'metrics/std_reward': np.std(rewards),
+                'metrics/median_reward': np.median(rewards)}
 
 
     current_time = datetime.now().strftime('%b%d_%H-%M-%S')
-    log_dir = os.path.join("runs", "continuous_actions_runs", current_time)
+    log_dir = os.path.join('runs', 'continuous_actions_runs', current_time)
     writer = tensorboard_writer.CustomSummaryWriter(log_dir=log_dir)
 
 
     def log(main_tag, values, episode):
-        writer.add_scalar(f"{main_tag}/mean", np.mean(values), episode)
-        writer.add_scalar(f"{main_tag}/min", np.min(values), episode)
-        writer.add_scalar(f"{main_tag}/max", np.max(values), episode)
-        writer.add_scalar(f"{main_tag}/std", np.std(values), episode)
-        writer.add_scalar(f"{main_tag}/median", np.median(values), episode)
+        writer.add_scalar(f'{main_tag}/mean', np.mean(values), episode)
+        writer.add_scalar(f'{main_tag}/min', np.min(values), episode)
+        writer.add_scalar(f'{main_tag}/max', np.max(values), episode)
+        writer.add_scalar(f'{main_tag}/std', np.std(values), episode)
+        writer.add_scalar(f'{main_tag}/median', np.median(values), episode)
 
 
     def log_greedy_policy(draw=True):
@@ -95,11 +95,11 @@ if __name__ == "__main__":
             policy_tool.draw()
         policy_img = cv2.cvtColor(policy_tool.image, cv2.COLOR_BGR2RGB)
         policy_img = torch.from_numpy(policy_img)
-        writer.add_image("greedy_policy", policy_img, episode_number,
-                         dataformats="HWC")
+        writer.add_image('greedy_policy', policy_img, episode_number,
+                         dataformats='HWC')
 
 
-    model_path = os.path.join("models", "continuous_models")
+    model_path = os.path.join('models', 'continuous_models')
     if not os.path.isdir(model_path):
         os.makedirs(model_path)
 
@@ -127,7 +127,7 @@ if __name__ == "__main__":
             if epsilon > minimum_epsilon:
                 epsilon -= delta
                 epsilon = max(epsilon, minimum_epsilon)
-                episodes_iter.set_description(f"Epsilon: {epsilon:.3f} ")
+                episodes_iter.set_description(f'Epsilon: {epsilon:.3f} ')
 
         agent.dqn.eval()
         agent.reset()
@@ -141,13 +141,13 @@ if __name__ == "__main__":
                 break
 
         rewards = np.array(episode_reward_list)
-        log("reward", rewards, episode_number)
-        writer.add_histogram("reward_dist", rewards, episode_number)
+        log('reward', rewards, episode_number)
+        writer.add_histogram('reward_dist', rewards, episode_number)
         step_losses = np.array(episode_loss_list)
-        log("loss", step_losses, episode_number)
+        log('loss', step_losses, episode_number)
         writer.add_hparams(hyperparameters, metrics(rewards))
-        writer.add_scalar("reached_goal", has_reached_goal, episode_number)
-        writer.add_scalar("epsilon", epsilon, episode_number)
+        writer.add_scalar('reached_goal', has_reached_goal, episode_number)
+        writer.add_scalar('epsilon', epsilon, episode_number)
 
         if display_tools:
             policy_tool.draw()
@@ -157,14 +157,14 @@ if __name__ == "__main__":
             log_greedy_policy()
 
         torch.save(dqn.q_network.state_dict(),
-                   os.path.join(model_path, f"q_networks_state_dict-{episode_number}.pt"))
+                   os.path.join(model_path, f'q_networks_state_dict-{episode_number}.pt'))
         torch.save(dqn.target_network.state_dict(),
-                   os.path.join(model_path, f"target_networks_state_dict-{episode_number}.pt"))
+                   os.path.join(model_path, f'target_networks_state_dict-{episode_number}.pt'))
 
     policy_tool.draw()
     policy_tool.save_image('greedy_policy_reward.png')
 
     torch.save(dqn.q_network.state_dict(),
-               os.path.join(model_path, "q_networks_state_dict.pt"))
+               os.path.join(model_path, 'q_networks_state_dict.pt'))
     torch.save(dqn.target_network.state_dict(),
-               os.path.join(model_path, "target_networks_state_dict.pt"))
+               os.path.join(model_path, 'target_networks_state_dict.pt'))
