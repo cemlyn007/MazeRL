@@ -10,7 +10,8 @@ TORCH_I = torch.tensor(np.complex(0, 1))
 
 class ContinuousDQN(dqn.AbstractDQN):
 
-    def __init__(self, gamma=0.9, lr=0.001, weight_decay=0.0, device=None):
+    def __init__(self, gamma: float = 0.9, lr: float = 0.001, weight_decay: float = 0.,
+                 device: torch.device = None):
         super().__init__(gamma, lr, device)
         self.weight_decay = weight_decay
         self.q_network = stub_network.Network(2 + 1, 1).to(self.device)
@@ -24,14 +25,15 @@ class ContinuousDQN(dqn.AbstractDQN):
         self.cross_entropy_n = 12
 
     @staticmethod
-    def unpack_transitions(transitions):
+    def unpack_transitions(transitions: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor,
+                                                               torch.Tensor, torch.Tensor]:
         states = transitions[:, :2]
         actions = transitions[:, 2]
         rewards = transitions[:, 3]
         next_states = transitions[:, 4:]
         return states, actions, rewards, next_states
 
-    def compute_losses(self, transitions):
+    def compute_losses(self, transitions: torch.Tensor) -> torch.Tensor:
         states, actions, rewards, next_states = self.unpack_transitions(transitions)
         inputs = self.make_network_inputs(states, actions)
         predictions = self.q_network(inputs).squeeze(-1)
@@ -40,13 +42,15 @@ class ContinuousDQN(dqn.AbstractDQN):
         loss = self.loss_f(predictions, targets)
         return loss
 
-    def make_network_inputs(self, states, actions):
+    def make_network_inputs(self, states: torch.Tensor, actions: torch.Tensor) -> torch.Tensor:
         inputs = torch.empty((states.size(0), 3), device=self.device)
         inputs[:, :2] = states
         inputs[:, 2] = self.angles_to_network_actions(actions)
         return inputs
 
-    def cross_entropy_network_actions_selection(self, states, network):
+    def cross_entropy_network_actions_selection(self, states: torch.Tensor,
+                                                network: torch.nn.Module
+                                                ) -> tuple[torch.Tensor, torch.Tensor]:
         m = self.cross_entropy_m
         n = self.cross_entropy_n
         batch_size = states.size(0)
@@ -99,25 +103,21 @@ class ContinuousDQN(dqn.AbstractDQN):
             return sampled_network_actions.mean(-1), q_values.mean(-1)
 
     @staticmethod
-    def angles_to_network_actions(angles):
+    def angles_to_network_actions(angles: torch.Tensor) -> torch.Tensor:
         return angles.div(TORCH_PI)  # output ranges(-1,+1)
 
     @staticmethod
-    def network_actions_to_angles(network_inputs):
+    def network_actions_to_angles(network_inputs: torch.Tensor) -> torch.Tensor:
         return network_inputs.mul(TORCH_PI)  # output ranges(-pi,+pi)
 
-    def get_greedy_continuous_q_values(self, states):
-        _, values = self.cross_entropy_network_actions_selection(states,
-                                                                 self.q_network)
+    def get_greedy_continuous_q_values(self, states: torch.Tensor) -> torch.Tensor:
+        _, values = self.cross_entropy_network_actions_selection(states, self.q_network)
         return values
 
-    def get_greedy_continuous_angles(self, states):
-        network_actions, _ = self.cross_entropy_network_actions_selection(states,
-                                                                          self.q_network)
-        angles = self.network_actions_to_angles(network_actions)
-        return angles
+    def get_greedy_continuous_angles(self, states: torch.Tensor) -> torch.Tensor:
+        network_actions, _ = self.cross_entropy_network_actions_selection(states, self.q_network)
+        return self.network_actions_to_angles(network_actions)
 
-    def get_greedy_continuous_network_actions(self, states):
-        network_actions, _ = self.cross_entropy_network_actions_selection(states,
-                                                                          self.q_network)
+    def get_greedy_continuous_network_actions(self, states: torch.Tensor) -> torch.Tensor:
+        network_actions, _ = self.cross_entropy_network_actions_selection(states, self.q_network)
         return network_actions

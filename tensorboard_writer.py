@@ -4,7 +4,7 @@ from torch.utils.tensorboard import summary
 
 
 class CustomSummaryWriter(tensorboard.SummaryWriter):
-    def add_hparams(self, hparam_dict, metric_dict, **kwargs):
+    def add_hparams(self, hparam_dict: dict, metric_dict: dict, **kwargs):
         torch._C._log_api_usage_once('tensorboard.logging.add_hparams')
         if type(hparam_dict) is not dict or type(metric_dict) is not dict:
             raise TypeError('hparam_dict and metric_dict should be dictionary.')

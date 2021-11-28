@@ -20,15 +20,14 @@ class ReplayBuffer(torch.utils.data.Dataset):
         entry = torch.tensor((*state, action, reward, *new_state))
         self.container.append(entry)
 
-    def sample(self):
-        random_sample_index = np.random.randint(0, len(self))
-        return self[random_sample_index]
+    def sample(self) -> torch.Tensor:
+        return random.choice(self.container)
 
-    def batch_sample(self):
+    def batch_sample(self) -> torch.Tensor:
         transitions = random.sample(self.container, self.batch_size)
         return torch.stack(transitions)
 
-    def __getitem__(self, index: int):
+    def __getitem__(self, index: int) -> torch.Tensor:
         return self.container[index]
 
     def __add__(self, other):

@@ -26,17 +26,16 @@ class FastPrioritisedExperienceReplayBuffer(replay_buffer.ReplayBuffer):
         weight = max(self.weights) if len(self.weights) > 0 else 1.
         self.weights.append(weight)
 
-    def sample(self):
-        transition = random.choices(self.container, self.weights)
-        return transition
+    def sample(self) -> torch.Tensor:
+        return random.choices(self.container, self.weights, k=1)[0]
 
-    def batch_sample(self):
+    def batch_sample(self) -> torch.Tensor:
         self._indices = random.choices(range(len(self.container)),
                                        self.weights, k=self.batch_size)
         transitions = [self.container[i] for i in self._indices]
         return torch.stack(transitions)
 
-    def update_batch_weights(self, losses: torch.Tensor):
+    def update_batch_weights(self, losses: torch.Tensor) -> None:
         batch_weights = torch.abs(losses) + self.eps
         for index, weight in zip(self._indices, batch_weights):
             self.weights[index] = weight.item()

@@ -2,6 +2,7 @@ import cv2
 import numpy as np
 import torch
 
+import discrete_agent
 import tools.abstract_graphics
 
 
@@ -9,7 +10,8 @@ class ActionsVisualTool(tools.abstract_graphics.AbstractGraphics):
     YELLOW = (0, 255, 255)
     BLUE = (255, 0, 0)
 
-    def __init__(self, magnification, agent, num_of_cells=10):
+    def __init__(self, magnification: int, agent: discrete_agent.DiscreteAgent,
+                 num_of_cells: int = 10):
         super().__init__('Actions Qs', magnification, agent)
         self.num_of_cells = num_of_cells
         self.image = self.environment.image
@@ -26,7 +28,7 @@ class ActionsVisualTool(tools.abstract_graphics.AbstractGraphics):
         self.thickness = max(int(0.002 * self.magnification), 1)
         self.states = self.get_state_space_tensor()
 
-    def generate_grid_mid_points(self):
+    def generate_grid_mid_points(self) -> np.ndarray:
         x_shift = (self.width * .5) / self.num_of_cells
         xs = np.linspace(0.0 + x_shift, self.width - x_shift,
                          num=self.num_of_cells, endpoint=True,
@@ -38,7 +40,7 @@ class ActionsVisualTool(tools.abstract_graphics.AbstractGraphics):
         ys = np.flip(ys)
         return np.dstack(np.meshgrid(xs, ys)) * self.magnification
 
-    def generate_triangle_vertices(self):
+    def generate_triangle_vertices(self) -> np.ndarray:
         shape = (self.num_of_cells, self.num_of_cells, 4, 3, 2)
         triangles = np.zeros(shape)
         x = (self.width * .5) / self.num_of_cells
@@ -55,7 +57,7 @@ class ActionsVisualTool(tools.abstract_graphics.AbstractGraphics):
                                           self.grid_centres[i, j])
         return np.round(triangles).astype(np.int)
 
-    def get_state_space_tensor(self):
+    def get_state_space_tensor(self) -> torch.Tensor:
         x_shift = (self.width * .5) / self.num_of_cells
         xs = np.linspace(0.0 + x_shift, self.width - x_shift,
                          num=self.num_of_cells, endpoint=True, dtype=np.float32)
@@ -66,7 +68,7 @@ class ActionsVisualTool(tools.abstract_graphics.AbstractGraphics):
         states = torch.from_numpy(np.dstack(np.meshgrid(xs, ys)))
         return states
 
-    def update_colors(self):
+    def update_colors(self) -> None:
         was_training = False
         if self.dqn.q_network.training:
             self.dqn.q_network.eval()
@@ -83,7 +85,7 @@ class ActionsVisualTool(tools.abstract_graphics.AbstractGraphics):
         all_worst_to_best_triangles = np.argsort(all_estimated_q_values, -1)
         all_sorted_q_values = all_estimated_q_values.take(all_worst_to_best_triangles)
 
-        def interpolate(x):
+        def interpolate(x: np.ndarray) -> np.ndarray:
             return np.interp(x, x[[0, 3]], np.array((0., 255.), dtype=np.float32))
 
         reds = np.apply_along_axis(interpolate, -1, all_sorted_q_values)
@@ -95,7 +97,7 @@ class ActionsVisualTool(tools.abstract_graphics.AbstractGraphics):
         self.bgr[:, ..., 1] = greens.take(ordering)
         self.bgr[:, ..., 2] = reds.take(ordering)
 
-    def draw_diagonals(self):
+    def draw_diagonals(self) -> None:
         color = (0, 0, 0)
         for x, y in zip(self.x_axis, self.y_axis):
             cv2.line(self.image, (x, 0), (0, y), color, self.thickness)
@@ -106,7 +108,7 @@ class ActionsVisualTool(tools.abstract_graphics.AbstractGraphics):
             cv2.line(self.image, (x, 0), (self.x_axis[-1], self.y_axis[-1] - y),
                      color, self.thickness)
 
-    def draw_borders(self):
+    def draw_borders(self) -> None:
         color = (255, 255, 255)
         for x in self.x_axis:
             cv2.line(self.image, (x, 0), (x, self.y_axis[-1]), color,
@@ -115,7 +117,7 @@ class ActionsVisualTool(tools.abstract_graphics.AbstractGraphics):
             cv2.line(self.image, (0, y), (self.x_axis[-1], y), color,
                      self.thickness)
 
-    def draw_triangles(self):
+    def draw_triangles(self) -> None:
         self.update_colors()
         array_shape = self.triangles.shape
         for i in range(array_shape[0]):
@@ -126,7 +128,7 @@ class ActionsVisualTool(tools.abstract_graphics.AbstractGraphics):
                                        color=self.bgr[i, j, k].tolist()
                                        )
 
-    def draw(self):
+    def draw(self) -> None:
         self.image.fill(0)
         self.draw_triangles()
         self.draw_diagonals()

@@ -6,7 +6,7 @@ from environments import abstract_environment
 
 class RandomEnvironment(abstract_environment.AbstractEnvironment):
 
-    def __init__(self, display, magnification):
+    def __init__(self, display: bool, magnification: int):
         super().__init__(display, magnification, 'Random Environment')
         self.free_blocks = None
         self._define_environment_space()
@@ -20,7 +20,7 @@ class RandomEnvironment(abstract_environment.AbstractEnvironment):
         self.predraw_environ()
 
     @abstract_environment.AbstractEnvironment.magnification.setter
-    def magnification(self, value):
+    def magnification(self, value: int) -> None:
         self._magnification = value
         self.image = np.zeros([int(self.magnification * self.width),
                                int(self.magnification * self.height),
@@ -28,7 +28,7 @@ class RandomEnvironment(abstract_environment.AbstractEnvironment):
         self._predrawn_environ = np.zeros_like(self.image)
         self.predraw_environ()
 
-    def _define_environment_space(self):
+    def _define_environment_space(self) -> None:
         init_state_x = 0.05
         init_state_y = np.random.uniform(0.05, 0.95)
         self.init_state = np.array([init_state_x, init_state_y],
@@ -91,10 +91,10 @@ class RandomEnvironment(abstract_environment.AbstractEnvironment):
         y_goal_state = np.random.uniform(block_bottom + 0.01, block_top - 0.01)
         self.goal_state = np.array([0.95, y_goal_state], dtype=np.float32)
 
-    def reset(self):
+    def reset(self) -> np.ndarray:
         return self.init_state
 
-    def step(self, state, action):
+    def step(self, state: np.ndarray, action: np.ndarray) -> tuple[np.ndarray, float]:
         if np.linalg.norm(action) > 0.02:
             print('TOO BIG')
             next_state = state
@@ -118,7 +118,7 @@ class RandomEnvironment(abstract_environment.AbstractEnvironment):
             self.show()
         return next_state, distance_to_goal
 
-    def predraw_environ(self):
+    def predraw_environ(self) -> None:
         self._predrawn_environ.fill(100)
         for block in self.free_blocks:
             top_left = (int(self.magnification * block[0][0]),
@@ -128,22 +128,22 @@ class RandomEnvironment(abstract_environment.AbstractEnvironment):
             cv2.rectangle(self._predrawn_environ, top_left, bottom_right,
                           (0, 0, 0), thickness=cv2.FILLED)
 
-    def draw_environ(self):
+    def draw_environ(self) -> None:
         self.image[:] = self._predrawn_environ
 
-    def draw_agent(self, agent_state):
+    def draw_agent(self, agent_state: np.ndarray) -> None:
         agent_centre = (int(agent_state[0] * self.magnification),
                         int((1 - agent_state[1]) * self.magnification))
         cv2.circle(self.image, agent_centre, self.agent_radius,
                    self.agent_colour, cv2.FILLED)
 
-    def draw_goal(self):
+    def draw_goal(self) -> None:
         goal_centre = (int(self.goal_state[0] * self.magnification),
                        int((1 - self.goal_state[1]) * self.magnification))
         cv2.circle(self.image, goal_centre, self.goal_radius,
                    self.goal_colour, cv2.FILLED)
 
-    def draw(self, agent_state):
+    def draw(self, agent_state: np.ndarray) -> None:
         self.draw_environ()
         self.draw_agent(agent_state)
         self.draw_goal()

@@ -1,5 +1,5 @@
-import random
 import collections
+import random
 
 import numpy as np
 import torch
@@ -19,33 +19,32 @@ class SlowPrioritisedExperienceReplayBuffer(replay_buffer.ReplayBuffer):
         self.agent = agent
         self.dqn = agent.dqn
 
-    def weight(self, entry: torch.Tensor):
+    def weight(self, entry: torch.Tensor) -> float:
         with torch.no_grad():
             entry = entry.unsqueeze(0).to(self.dqn.device)
             loss = self.dqn.compute_losses(entry).item()
         return abs(loss) + self.eps
 
     def store(self, state: np.ndarray, action: int, reward: float,
-              new_state: np.ndarray):
+              new_state: np.ndarray) -> None:
         entry = torch.tensor((*state, action, reward, *new_state))
         self.container.append(entry)
         weight = self.weight(entry)
         self.weights.append(weight)
 
-    def sample(self):
+    def sample(self) -> torch.Tensor:
         weights = self.get_sampling_weights()
-        transition = random.choices(self.container, weights)
-        return transition
+        return random.choices(self.container, weights)[0]
 
-    def get_sampling_weights(self):
+    def get_sampling_weights(self) -> np.ndarray:
         if self.alpha == 1:
-            return self.weights
+            return np.array(self.weights)
         else:
             ps = np.array(self.weights) ** self.alpha
             ps /= ps.sum()
             return ps
 
-    def batch_sample(self):
+    def batch_sample(self) -> torch.Tensor:
         weights = self.get_sampling_weights()
         transitions = random.choices(self.container, weights, k=self.batch_size)
         return torch.stack(transitions)

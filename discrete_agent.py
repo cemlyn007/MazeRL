@@ -2,18 +2,21 @@ import numpy as np
 import torch
 
 import abstract_agent
+import discrete_dqns.dqn
+import environments.abstract_environment
 
 
 class DiscreteAgent(abstract_agent.AbstractAgent):
 
-    def __init__(self, environment, dqn, stride):
+    def __init__(self, environment: environments.abstract_environment.AbstractEnvironment,
+                 dqn: discrete_dqns.dqn.DiscreteDQN, stride: float):
         super().__init__(environment, dqn)
         self.RIGHT = np.array([stride, 0], dtype=np.float32)
         self.LEFT = np.array([-stride, 0], dtype=np.float32)
         self.UP = np.array([0, stride], dtype=np.float32)
         self.DOWN = np.array([0, -stride], dtype=np.float32)
 
-    def step(self, epsilon=0):
+    def step(self, epsilon: float = 0) -> tuple[tuple, float]:
         if epsilon <= np.random.uniform():
             discrete_action = self.get_greedy_discrete_action(self.state)
         else:
@@ -27,7 +30,7 @@ class DiscreteAgent(abstract_agent.AbstractAgent):
         self.total_reward += reward
         return transition, distance_to_goal
 
-    def _discrete_action_to_continuous(self, discrete_action):
+    def _discrete_action_to_continuous(self, discrete_action: int) -> np.ndarray:
         if discrete_action == 0:  # Move right
             continuous_action = self.RIGHT
         elif discrete_action == 1:  # Move left
@@ -40,18 +43,14 @@ class DiscreteAgent(abstract_agent.AbstractAgent):
             raise ValueError('Unexpected value')
         return continuous_action
 
-    def get_greedy_discrete_action(self, state):
+    def get_greedy_discrete_action(self, state: np.ndarray) -> int:
         with torch.no_grad():
-            if isinstance(state, torch.Tensor):
-                state_tensor = state.to(self.dqn.device)
-                state_tensor.unsqueeze_(0)
-            else:
-                state_tensor = torch.tensor(state,
-                                            device=self.dqn.device).unsqueeze(0)
+            state_tensor = torch.tensor(state, device=self.dqn.device)
+            state_tensor.unsqueeze_(0)
             q_values_for_each_action = self.dqn.q_network(state_tensor)
             best_discrete_action = torch.argmax(q_values_for_each_action, dim=1)
         return best_discrete_action.item()
 
-    def get_greedy_action(self, state):
+    def get_greedy_action(self, state: np.ndarray) -> np.ndarray:
         discrete_action = self.get_greedy_discrete_action(state)
         return self._discrete_action_to_continuous(discrete_action)
