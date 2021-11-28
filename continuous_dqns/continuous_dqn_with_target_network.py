@@ -1,14 +1,16 @@
 import copy
 
-from abstract_dqns import AbstractDQNWithTargetNetwork
-from .continuous_dqn import ContinuousDQN
+from abstract_dqns import abstract_dqn_with_target_network
+from continuous_dqns import continuous_dqn
 
 
-class ContinuousDQNWithTargetNetwork(ContinuousDQN, AbstractDQNWithTargetNetwork):
+class ContinuousDQNWithTargetNetwork(continuous_dqn.ContinuousDQN,
+                                     abstract_dqn_with_target_network.AbstractDQNWithTargetNetwork):
 
     def __init__(self, gamma=0.9, lr=0.001, weight_decay=0.0, device=None):
-        AbstractDQNWithTargetNetwork.__init__(self, gamma, lr, device)
-        ContinuousDQN.__init__(self, gamma, lr, weight_decay, device)
+        abstract_dqn_with_target_network.AbstractDQNWithTargetNetwork.__init__(self, gamma, lr,
+                                                                               device)
+        continuous_dqn.ContinuousDQN.__init__(self, gamma, lr, weight_decay, device)
         self.target_network = copy.deepcopy(self.q_network)
 
     def compute_losses(self, transitions):

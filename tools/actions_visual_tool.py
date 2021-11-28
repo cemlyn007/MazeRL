@@ -2,7 +2,7 @@ import cv2
 import numpy as np
 import torch
 
-from .abstract_graphics import AbstractGraphics
+from tools.abstract_graphics import AbstractGraphics
 
 
 class ActionsVisualTool(AbstractGraphics):

@@ -1,20 +1,18 @@
 import os
+from datetime import datetime
 
 import cv2
 import numpy as np
 import torch
 from tqdm import tqdm
 
+import discrete_agent
+import tensorboard_writer
+from discrete_dqns import discrete_double_dqn
+from environments import random_environment
+from replay_buffers import fast_prioritised_experience_replay_buffer
+from tools import greedy_policy_graphics
 from tools.actions_visual_tool import ActionsVisualTool
-from discrete_agent import DiscreteAgent
-from discrete_dqns import DiscreteDoubleDQN
-from tools.greedy_policy_graphics import GreedyPolicyTool
-from environments.random_environment import RandomEnvironment
-from datetime import datetime
-
-from replay_buffers import FastPrioritisedExperienceReplayBuffer
-
-from tensorboard_writer import CustomSummaryWriter
 
 if __name__ == "__main__":
 
@@ -35,18 +33,24 @@ if __name__ == "__main__":
     weight_decay = 1e-7
     tau = 5  # target network episode update rate
 
-    device = torch.device("cuda")
+    if torch.cuda.is_available():
+        print("Using GPU")
+        device = torch.device("cuda")
+    else:
+        print("Using CPU")
+        device = torch.device("cpu")
     display_game = False
     display_tools = False
 
-    environment = RandomEnvironment(display=display_game, magnification=500)
-    dqn = DiscreteDoubleDQN(gamma, lr, weight_decay, device=device)
-    agent = DiscreteAgent(environment, dqn, stride=0.02)
-    rb = FastPrioritisedExperienceReplayBuffer(max_capacity, batch_size,
-                                               sampling_eps, agent)
+    environment = random_environment.RandomEnvironment(display=display_game,
+                                                       magnification=500)
+    dqn = discrete_double_dqn.DiscreteDoubleDQN(gamma, lr, weight_decay, device=device)
+    agent = discrete_agent.DiscreteAgent(environment, dqn, stride=0.02)
+    rb = fast_prioritised_experience_replay_buffer.FastPrioritisedExperienceReplayBuffer(
+        max_capacity, batch_size, sampling_eps, agent)
 
-    policy_tool = GreedyPolicyTool(magnification=250, agent=agent,
-                                   max_step_num=200)
+    policy_tool = greedy_policy_graphics.GreedyPolicyTool(magnification=250, agent=agent,
+                                                          max_step_num=200)
     actions_tool = ActionsVisualTool(500, agent, 10)
 
     hyperparameters = {
@@ -75,7 +79,7 @@ if __name__ == "__main__":
 
 
     now = datetime.now().strftime('%b%d_%H-%M-%S')
-    writer = CustomSummaryWriter(log_dir=f"runs/discrete_agent_runs/{now}")
+    writer = tensorboard_writer.CustomSummaryWriter(log_dir=f"runs/discrete_agent_runs/{now}")
 
 
     def log(main_tag, values, episode):

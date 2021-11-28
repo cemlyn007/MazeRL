@@ -1,15 +1,15 @@
 import torch
 
-from abstract_dqns import AbstractDQN
-from .discrete_network import DiscreteNetwork
+from abstract_dqns import abstract_dqn
+from discrete_dqns import discrete_network
 
 
-class DiscreteDQN(AbstractDQN):
+class DiscreteDQN(abstract_dqn.AbstractDQN):
 
     def __init__(self, gamma=0.9, lr=0.001, weight_decay=0.0, device=None):
         super().__init__(gamma, lr, device)
         self.weight_decay = weight_decay
-        self.q_network = DiscreteNetwork(2, 4).to(self.device)
+        self.q_network = discrete_network.DiscreteNetwork(2, 4).to(self.device)
         self.optimizer = torch.optim.Adam(self.q_network.parameters(), self.lr,
                                           weight_decay=self.weight_decay)
         self.loss_f = torch.nn.MSELoss(reduction="none")

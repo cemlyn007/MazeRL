@@ -1,9 +1,10 @@
 import numpy as np
 import torch
-from abstract_agent import AbstractAgent
+
+import abstract_agent
 
 
-class DiscreteAgent(AbstractAgent):
+class DiscreteAgent(abstract_agent.AbstractAgent):
 
     def __init__(self, environment, dqn, stride):
         super().__init__(environment, dqn)

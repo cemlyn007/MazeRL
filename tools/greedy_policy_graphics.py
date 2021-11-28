@@ -1,7 +1,8 @@
 import cv2
 import numpy as np
 import torch
-from .abstract_graphics import AbstractGraphics
+
+from tools.abstract_graphics import AbstractGraphics
 
 
 class GreedyPolicyTool(AbstractGraphics):
@@ -35,7 +36,7 @@ class GreedyPolicyTool(AbstractGraphics):
         displayed_state = state * self.magnification
         displayed_state[1] = (self.height * self.magnification
                               - displayed_state[1])
-        displayed_state = tuple(displayed_state)
+        displayed_state = tuple(displayed_state.astype(int))
         policy_path = [displayed_state]
 
         was_training = False

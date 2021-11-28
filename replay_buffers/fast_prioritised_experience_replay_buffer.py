@@ -4,14 +4,14 @@ from collections import deque
 import torch
 from numpy import ndarray
 
-from abstract_agent import AbstractAgent
-from replay_buffers import ReplayBuffer
+import abstract_agent
+from replay_buffers import replay_buffer
 
 
-class FastPrioritisedExperienceReplayBuffer(ReplayBuffer):
+class FastPrioritisedExperienceReplayBuffer(replay_buffer.ReplayBuffer):
 
     def __init__(self, max_capacity: int, batch_size: int, eps: float,
-                 agent: AbstractAgent):
+                 agent: abstract_agent.AbstractAgent):
         super().__init__(max_capacity, batch_size)
         self.eps = eps
         self.agent = agent

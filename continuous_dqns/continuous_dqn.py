@@ -1,19 +1,19 @@
 import numpy as np
 import torch
 
-from abstract_dqns import AbstractDQN
-from abstract_dqns.stub_network import Network
+from abstract_dqns import abstract_dqn
+from abstract_dqns import stub_network
 
 TORCH_PI = torch.tensor(np.pi)
 TORCH_I = torch.tensor(np.complex(0, 1))
 
 
-class ContinuousDQN(AbstractDQN):
+class ContinuousDQN(abstract_dqn.AbstractDQN):
 
     def __init__(self, gamma=0.9, lr=0.001, weight_decay=0.0, device=None):
         super().__init__(gamma, lr, device)
         self.weight_decay = weight_decay
-        self.q_network = Network(2 + 1, 1).to(self.device)
+        self.q_network = stub_network.Network(2 + 1, 1).to(self.device)
         self.optimizer = torch.optim.Adam(self.q_network.parameters(),
                                           lr=self.lr,
                                           betas=(0.9, 0.975), eps=0.1,

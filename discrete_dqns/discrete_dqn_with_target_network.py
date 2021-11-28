@@ -2,17 +2,19 @@ import copy
 
 import torch
 
-from abstract_dqns import AbstractDQNWithTargetNetwork
-from .discrete_dqn import DiscreteDQN
+from abstract_dqns import abstract_dqn_with_target_network
+from discrete_dqns import discrete_dqn
 
 
-class DiscreteDQNWithTargetNetwork(AbstractDQNWithTargetNetwork, DiscreteDQN):
+class DiscreteDQNWithTargetNetwork(abstract_dqn_with_target_network.AbstractDQNWithTargetNetwork,
+                                   discrete_dqn.DiscreteDQN):
 
     def __init__(self, gamma=0.9, lr=0.001, weight_decay=0.0, device=None):
-        AbstractDQNWithTargetNetwork.__init__(self, gamma=gamma, lr=lr,
-                                              device=device)
-        DiscreteDQN.__init__(self, gamma=gamma, lr=lr,
-                             weight_decay=weight_decay, device=device)
+        abstract_dqn_with_target_network.AbstractDQNWithTargetNetwork.__init__(self,
+                                                                               gamma=gamma, lr=lr,
+                                                                               device=device)
+        discrete_dqn.DiscreteDQN.__init__(self, gamma=gamma, lr=lr,
+                                          weight_decay=weight_decay, device=device)
         self.target_network = copy.deepcopy(self.q_network)
 
     def compute_losses(self, transitions):

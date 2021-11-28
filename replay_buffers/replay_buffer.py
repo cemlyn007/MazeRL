@@ -1,22 +1,22 @@
+import collections
+import random
+
 import numpy as np
 import torch
-from collections import deque
-from torch.utils.data import Dataset
-import random
-from numpy import ndarray
+import torch.utils.data
 
 
-class ReplayBuffer(Dataset):
+class ReplayBuffer(torch.utils.data.Dataset):
 
     def __init__(self, max_capacity: int, batch_size: int):
         self.batch_size = batch_size
-        self.container = deque(maxlen=max_capacity)
+        self.container = collections.deque(maxlen=max_capacity)
 
     def __len__(self):
         return len(self.container)
 
-    def store(self, state: ndarray, action: int, reward: float,
-              new_state: ndarray):
+    def store(self, state: np.ndarray, action: int, reward: float,
+              new_state: np.ndarray):
         entry = torch.tensor((*state, action, reward, *new_state))
         self.container.append(entry)
 

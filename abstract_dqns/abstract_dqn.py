@@ -1,8 +1,7 @@
 import torch
-from torch import nn
 
 
-class AbstractDQN(nn.Module):
+class AbstractDQN(torch.nn.Module):
 
     def __init__(self, gamma=0.9, lr=0.001, device=None):
         super().__init__()

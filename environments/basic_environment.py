@@ -1,9 +1,10 @@
-import numpy as np
 import cv2
-from .abstract_environment import AbstractEnvironment
+import numpy as np
+
+from environments import abstract_environment
 
 
-class BasicEnvironment(AbstractEnvironment):
+class BasicEnvironment(abstract_environment.AbstractEnvironment):
 
     def __init__(self, display: bool, magnification: int):
         super().__init__(display, magnification, "Basic Environment")
@@ -17,7 +18,7 @@ class BasicEnvironment(AbstractEnvironment):
         self.environ_image = None
         self.update_environ_image()
 
-    @AbstractEnvironment.magnification.setter
+    @abstract_environment.AbstractEnvironment.magnification.setter
     def magnification(self, value):
         self._magnification = value
         self.update_environ_image()
@@ -79,11 +80,3 @@ class BasicEnvironment(AbstractEnvironment):
         self.draw_environ()
         self.draw_agent(agent_state)
         self.draw_goal()
-
-
-if __name__ == "__main__":
-    env = BasicEnvironment(True, 720)
-
-    env.draw([0, 0])
-    env.show()
-    cv2.waitKey(0)

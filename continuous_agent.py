@@ -1,11 +1,11 @@
 import numpy as np
 import torch
 
+import abstract_agent
 import helpers
-from abstract_agent import AbstractAgent
 
 
-class ContinuousAgent(AbstractAgent):
+class ContinuousAgent(abstract_agent.AbstractAgent):
 
     def __init__(self, environment, dqn, stride):
         super().__init__(environment, dqn)

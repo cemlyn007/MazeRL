@@ -1,8 +1,9 @@
-from abstract_dqns import AbstractDoubleDQN
-from .continuous_dqn_with_target_network import ContinuousDQNWithTargetNetwork
+from abstract_dqns import abstract_double_dqn
+from continuous_dqns import continuous_dqn_with_target_network
 
 
-class ContinuousDoubleDQN(ContinuousDQNWithTargetNetwork, AbstractDoubleDQN):
+class ContinuousDoubleDQN(continuous_dqn_with_target_network.ContinuousDQNWithTargetNetwork,
+                          abstract_double_dqn.AbstractDoubleDQN):
 
     def __init__(self, gamma=0.9, lr=0.001, weight_decay=0.0, device=None):
         super().__init__(gamma, lr, weight_decay, device)

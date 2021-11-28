@@ -1,9 +1,10 @@
-import numpy as np
 import cv2
-from .abstract_environment import AbstractEnvironment
+import numpy as np
+
+from environments import abstract_environment
 
 
-class RandomEnvironment(AbstractEnvironment):
+class RandomEnvironment(abstract_environment.AbstractEnvironment):
 
     def __init__(self, display, magnification):
         super().__init__(display, magnification, "Random Environment")
@@ -18,7 +19,7 @@ class RandomEnvironment(AbstractEnvironment):
         self._predrawn_environ = np.zeros_like(self.image, dtype=np.uint8)
         self.predraw_environ()
 
-    @AbstractEnvironment.magnification.setter
+    @abstract_environment.AbstractEnvironment.magnification.setter
     def magnification(self, value):
         self._magnification = value
         self.image = np.zeros([int(self.magnification * self.width),

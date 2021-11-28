@@ -1,18 +1,17 @@
 import os
+from datetime import datetime
 
 import cv2
 import numpy as np
 import torch
 from tqdm import tqdm
 
-from continuous_agent import ContinuousAgent
-from continuous_dqns import ContinuousDQNWithTargetNetwork, ContinuousDQN, \
-    ContinuousDoubleDQN
-from environments import RandomEnvironment, BasicEnvironment
-from replay_buffers import FastPrioritisedExperienceReplayBuffer
-from tensorboard_writer import CustomSummaryWriter
-from tools.greedy_policy_graphics import GreedyPolicyTool
-from datetime import datetime
+import continuous_agent
+import continuous_dqns.continuous_double_dqn
+import environments.random_environment
+import tensorboard_writer
+import tools.greedy_policy_graphics
+from replay_buffers import fast_prioritised_experience_replay_buffer
 
 if __name__ == "__main__":
 
@@ -33,19 +32,25 @@ if __name__ == "__main__":
     weight_decay = 1e-7
     tau = 5  # target network episode update rate
 
-    device = torch.device("cuda")
+    if torch.cuda.is_available():
+        print("Using GPU")
+        device = torch.device("cuda")
+    else:
+        print("Using CPU")
+        device = torch.device("cpu")
     display_game = False
     display_tools = False
 
-    environment = RandomEnvironment(display=display_game, magnification=500)
-    dqn = ContinuousDoubleDQN(gamma, lr, device=device, weight_decay=weight_decay)
-    agent = ContinuousAgent(environment, dqn, stride=0.02)
-    rb = FastPrioritisedExperienceReplayBuffer(max_capacity, batch_size,
-                                               sampling_eps, agent)
+    environment = environments.random_environment.RandomEnvironment(display=display_game,
+                                                                    magnification=500)
+    dqn = continuous_dqns.continuous_double_dqn.ContinuousDoubleDQN(gamma, lr, device=device,
+                                                                    weight_decay=weight_decay)
+    agent = continuous_agent.ContinuousAgent(environment, dqn, stride=0.02)
+    rb = fast_prioritised_experience_replay_buffer.FastPrioritisedExperienceReplayBuffer(
+        max_capacity, batch_size, sampling_eps, agent)
 
-    policy_tool = GreedyPolicyTool(magnification=250, agent=agent,
-                                   max_step_num=200)
-    # actions_tool = ActionsVisualTool(500, agent, 10)
+    policy_tool = tools.greedy_policy_graphics.GreedyPolicyTool(magnification=250, agent=agent,
+                                                                max_step_num=200)
 
     hyperparameters = {
         "gamma": gamma,
@@ -74,7 +79,7 @@ if __name__ == "__main__":
 
     current_time = datetime.now().strftime('%b%d_%H-%M-%S')
     log_dir = os.path.join("runs", "continuous_actions_runs", current_time)
-    writer = CustomSummaryWriter(log_dir=log_dir)
+    writer = tensorboard_writer.CustomSummaryWriter(log_dir=log_dir)
 
 
     def log(main_tag, values, episode):
