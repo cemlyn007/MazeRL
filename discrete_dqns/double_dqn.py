@@ -1,9 +1,9 @@
 import torch
 
-from discrete_dqns import discrete_dqn_with_target_network
+from discrete_dqns import dqn_with_target_network
 
 
-class DiscreteDoubleDQN(discrete_dqn_with_target_network.DiscreteDQNWithTargetNetwork):
+class DiscreteDoubleDQN(dqn_with_target_network.DiscreteDQNWithTargetNetwork):
 
     def __init__(self, gamma=0.9, lr=0.001, weight_decay=0.0, device=None):
         super().__init__(gamma, lr, weight_decay, device)

@@ -1,7 +1,7 @@
-from abstract_dqns import abstract_dqn
+from abstract_dqns import dqn
 
 
-class AbstractDQNWithTargetNetwork(abstract_dqn.AbstractDQN):
+class AbstractDQNWithTargetNetwork(dqn.AbstractDQN):
 
     def __init__(self, gamma=0.9, lr=0.001, device=None):
         super().__init__(gamma=gamma, lr=lr, device=device)

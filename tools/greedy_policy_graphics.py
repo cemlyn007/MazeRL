@@ -2,10 +2,10 @@ import cv2
 import numpy as np
 import torch
 
-from tools.abstract_graphics import AbstractGraphics
+import tools.abstract_graphics
 
 
-class GreedyPolicyTool(AbstractGraphics):
+class GreedyPolicyTool(tools.abstract_graphics.AbstractGraphics):
     GREEN = (0, 255, 0)
     RED = (0, 0, 255)
 

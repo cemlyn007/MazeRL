@@ -8,9 +8,9 @@ from tqdm import tqdm
 
 import discrete_agent
 import tensorboard_writer
-from discrete_dqns import discrete_double_dqn
+from discrete_dqns import double_dqn
 from environments import random_environment
-from replay_buffers import fast_prioritised_experience_replay_buffer
+from replay_buffers import fast_prioritised_rb
 from tools import greedy_policy_graphics
 from tools.actions_visual_tool import ActionsVisualTool
 
@@ -44,10 +44,10 @@ if __name__ == "__main__":
 
     environment = random_environment.RandomEnvironment(display=display_game,
                                                        magnification=500)
-    dqn = discrete_double_dqn.DiscreteDoubleDQN(gamma, lr, weight_decay, device=device)
+    dqn = double_dqn.DiscreteDoubleDQN(gamma, lr, weight_decay, device=device)
     agent = discrete_agent.DiscreteAgent(environment, dqn, stride=0.02)
-    rb = fast_prioritised_experience_replay_buffer.FastPrioritisedExperienceReplayBuffer(
-        max_capacity, batch_size, sampling_eps, agent)
+    rb = fast_prioritised_rb.FastPrioritisedExperienceReplayBuffer(max_capacity, batch_size,
+                                                                   sampling_eps, agent)
 
     policy_tool = greedy_policy_graphics.GreedyPolicyTool(magnification=250, agent=agent,
                                                           max_step_num=200)

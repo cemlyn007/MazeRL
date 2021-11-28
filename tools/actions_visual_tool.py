@@ -2,10 +2,10 @@ import cv2
 import numpy as np
 import torch
 
-from tools.abstract_graphics import AbstractGraphics
+import tools.abstract_graphics
 
 
-class ActionsVisualTool(AbstractGraphics):
+class ActionsVisualTool(tools.abstract_graphics.AbstractGraphics):
     YELLOW = (0, 255, 255)
     BLUE = (255, 0, 0)
 

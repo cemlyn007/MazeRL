@@ -1,14 +1,14 @@
 import numpy as np
 import torch
 
-from abstract_dqns import abstract_dqn
+from abstract_dqns import dqn
 from abstract_dqns import stub_network
 
 TORCH_PI = torch.tensor(np.pi)
 TORCH_I = torch.tensor(np.complex(0, 1))
 
 
-class ContinuousDQN(abstract_dqn.AbstractDQN):
+class ContinuousDQN(dqn.AbstractDQN):
 
     def __init__(self, gamma=0.9, lr=0.001, weight_decay=0.0, device=None):
         super().__init__(gamma, lr, device)

@@ -7,11 +7,11 @@ import torch
 from tqdm import tqdm
 
 import continuous_agent
-import continuous_dqns.continuous_double_dqn
+import continuous_dqns.double_dqn
 import environments.random_environment
 import tensorboard_writer
 import tools.greedy_policy_graphics
-from replay_buffers import fast_prioritised_experience_replay_buffer
+from replay_buffers import fast_prioritised_rb
 
 if __name__ == "__main__":
 
@@ -43,11 +43,11 @@ if __name__ == "__main__":
 
     environment = environments.random_environment.RandomEnvironment(display=display_game,
                                                                     magnification=500)
-    dqn = continuous_dqns.continuous_double_dqn.ContinuousDoubleDQN(gamma, lr, device=device,
-                                                                    weight_decay=weight_decay)
+    dqn = continuous_dqns.double_dqn.ContinuousDoubleDQN(gamma, lr, device=device,
+                                                         weight_decay=weight_decay)
     agent = continuous_agent.ContinuousAgent(environment, dqn, stride=0.02)
-    rb = fast_prioritised_experience_replay_buffer.FastPrioritisedExperienceReplayBuffer(
-        max_capacity, batch_size, sampling_eps, agent)
+    rb = fast_prioritised_rb.FastPrioritisedExperienceReplayBuffer(max_capacity, batch_size,
+                                                                   sampling_eps, agent)
 
     policy_tool = tools.greedy_policy_graphics.GreedyPolicyTool(magnification=250, agent=agent,
                                                                 max_step_num=200)
