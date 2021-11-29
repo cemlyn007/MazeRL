@@ -1,135 +1,97 @@
+import math
+import time
+
 import cv2
 import numpy as np
-import torch
 
 import discrete_agent
+import discrete_dqns.dqn
+import environments.basic_environment
 import tools.abstract_graphics
+
+Point = tuple[float, float]
 
 
 class ActionsVisualTool(tools.abstract_graphics.AbstractGraphics):
     YELLOW = (0, 255, 255)
     BLUE = (255, 0, 0)
 
-    def __init__(self, magnification: int, agent: discrete_agent.DiscreteAgent,
-                 num_of_cells: int = 10):
+    def __init__(self, magnification: int, n_cells: int, n_actions: int,
+                 agent: discrete_agent.DiscreteAgent):
         super().__init__('Actions Qs', magnification, agent)
-        self.num_of_cells = num_of_cells
-        self.image = self.environment.image
-        self.grid_centres = self.generate_grid_mid_points()
-        self.x_axis = np.linspace(0, self.width * magnification,
-                                  num=self.num_of_cells + 1,
-                                  endpoint=True, dtype=np.int64)
-        self.y_axis = np.linspace(0, self.height * magnification,
-                                  num=self.num_of_cells + 1,
-                                  endpoint=True, dtype=np.int64)
-        self.triangles = self.generate_triangle_vertices()
-        colors_shape = (self.num_of_cells, self.num_of_cells, 4, 3)
-        self.bgr = np.zeros(colors_shape, dtype=np.uint8)
-        self.thickness = max(int(0.002 * self.magnification), 1)
-        self.states = self.get_state_space_tensor()
+        self.n_cells = n_cells
+        self.n_actions = n_actions
+        self.agent = agent
+        self.image = np.zeros([int(self.magnification),
+                               int(self.magnification), 3],
+                              dtype=np.uint8)
 
-    def generate_grid_mid_points(self) -> np.ndarray:
-        x_shift = (self.width * .5) / self.num_of_cells
-        xs = np.linspace(0.0 + x_shift, self.width - x_shift,
-                         num=self.num_of_cells, endpoint=True,
-                         dtype=np.float32)
-        y_shift = (self.height * .5) / self.num_of_cells
-        ys = np.linspace(0.0 + y_shift, self.height - y_shift,
-                         num=self.num_of_cells, endpoint=True,
-                         dtype=np.float32)
-        ys = np.flip(ys)
-        return np.dstack(np.meshgrid(xs, ys)) * self.magnification
-
-    def generate_triangle_vertices(self) -> np.ndarray:
-        shape = (self.num_of_cells, self.num_of_cells, 4, 3, 2)
-        triangles = np.zeros(shape)
-        x = (self.width * .5) / self.num_of_cells
-        y = (self.height * .5) / self.num_of_cells
-        # Ordering: Right, Left, Up, Down (Deliberately to match action indexes)
-        tri_orients = np.array([[[0, 0], [x, y], [x, -y]],
-                                [[0, 0], [-x, y], [-x, -y]],
-                                [[0, 0], [-x, -y], [x, -y]],
-                                [[0, 0], [-x, y], [x, y]]]) * self.magnification
-        for i in range(shape[0]):
-            for j in range(shape[1]):
-                for k in range(shape[2]):
-                    triangles[i, j, k] = (tri_orients[k] +
-                                          self.grid_centres[i, j])
-        return np.round(triangles).astype(np.int)
-
-    def get_state_space_tensor(self) -> torch.Tensor:
-        x_shift = (self.width * .5) / self.num_of_cells
-        xs = np.linspace(0.0 + x_shift, self.width - x_shift,
-                         num=self.num_of_cells, endpoint=True, dtype=np.float32)
-        y_shift = (self.height * .5) / self.num_of_cells
-        ys = np.linspace(0.0 + y_shift, self.height - y_shift,
-                         num=self.num_of_cells, endpoint=True,
-                         dtype=np.float32)
-        states = torch.from_numpy(np.dstack(np.meshgrid(xs, ys)))
-        return states
-
-    def update_colors(self) -> None:
-        was_training = False
-        if self.dqn.q_network.training:
-            self.dqn.q_network.eval()
-            was_training = True
-        with torch.no_grad():
-            state = self.states.to(self.agent.dqn.device)
-            predictions_tensor = self.dqn.q_network(state).cpu()
-        if was_training:
-            self.dqn.q_network.train()
-        all_estimated_q_values = predictions_tensor.view(self.num_of_cells,
-                                                         self.num_of_cells,
-                                                         4).numpy()
-        all_estimated_q_values /= all_estimated_q_values.sum(-1, keepdims=True)
-        all_worst_to_best_triangles = np.argsort(all_estimated_q_values, -1)
-        all_sorted_q_values = all_estimated_q_values.take(all_worst_to_best_triangles)
-
-        def interpolate(x: np.ndarray) -> np.ndarray:
-            return np.interp(x, x[[0, 3]], np.array((0., 255.), dtype=np.float32))
-
-        reds = np.apply_along_axis(interpolate, -1, all_sorted_q_values)
-        blues = reds[:, :, ::-1]
-        greens = reds
-
-        ordering = np.argsort(all_worst_to_best_triangles, -1)
-        self.bgr[:, ..., 0] = blues.take(ordering)
-        self.bgr[:, ..., 1] = greens.take(ordering)
-        self.bgr[:, ..., 2] = reds.take(ordering)
-
-    def draw_diagonals(self) -> None:
-        color = (0, 0, 0)
-        for x, y in zip(self.x_axis, self.y_axis):
-            cv2.line(self.image, (x, 0), (0, y), color, self.thickness)
-            cv2.line(self.image, (self.x_axis[-1] + x, 0),
-                     (0, self.y_axis[-1] + y), color, self.thickness)
-            cv2.line(self.image, (0, self.y_axis[-1] - y), (x, self.y_axis[-1]),
-                     color, self.thickness)
-            cv2.line(self.image, (x, 0), (self.x_axis[-1], self.y_axis[-1] - y),
-                     color, self.thickness)
-
-    def draw_borders(self) -> None:
-        color = (255, 255, 255)
-        for x in self.x_axis:
-            cv2.line(self.image, (x, 0), (x, self.y_axis[-1]), color,
-                     self.thickness)
-        for y in self.y_axis:
-            cv2.line(self.image, (0, y), (self.x_axis[-1], y), color,
-                     self.thickness)
-
-    def draw_triangles(self) -> None:
-        self.update_colors()
-        array_shape = self.triangles.shape
-        for i in range(array_shape[0]):
-            for j in range(array_shape[1]):
-                for k in range(array_shape[2]):
-                    cv2.fillConvexPoly(self.image,
-                                       points=self.triangles[i, j, k],
-                                       color=self.bgr[i, j, k].tolist()
-                                       )
+    def grids(self) -> list[tuple[Point, Point]]:
+        grids = []
+        for i in range(1, self.n_cells):
+            pos = i / self.n_cells
+            grids.extend((((0., pos), (1., pos)),
+                          ((pos, 0.), (pos, 1.))))
+        return grids
 
     def draw(self) -> None:
         self.image.fill(0)
-        self.draw_triangles()
-        self.draw_diagonals()
-        self.draw_borders()
+        unit_pts = self._get_unit_square_pie()
+        dt = 1. / self.n_cells / 2.
+        for i in range(self.n_cells):
+            x_mid = i / self.n_cells + dt
+            for j in range(self.n_cells):
+                y_mid = j / self.n_cells + dt
+                state = np.array((x_mid, y_mid))
+                q_values = self.agent.get_q_values(state)
+                normalised = ((q_values - q_values.min())
+                              / (q_values.max() - q_values.min()) * 255.).round().tolist()
+                normalised = list(map(int, normalised))
+                for k, pts in enumerate(unit_pts):
+                    pts = np.array([[self.convert((x * dt + x_mid, y * dt + y_mid))
+                                     for (x, y) in pts]],
+                                   dtype=np.int32)
+                    cv2.fillPoly(img=self.image, pts=pts, color=(255 - normalised[k], normalised[k], normalised[k]))
+
+        for line in self.grids():
+            cv2.line(self.image, self.convert(line[0]), self.convert(line[1]),
+                     color=(255, 255, 255))
+
+    def _get_unit_square_pie(self) -> list[tuple[Point, ...]]:
+        polygons = []
+        centre = (0., 0.)
+        for k in range(self.n_actions):
+            theta = math.pi * (2 * k - 1) / self.n_actions
+            next_theta = math.pi * (2 * (k + 1) - 1) / self.n_actions
+            corner_case = False
+            for m in range(1, 10, 2):
+                phi = m * math.pi / 4
+                if theta % (2 * math.pi) < phi < next_theta % (2 * math.pi):
+                    corner_case = True
+                    break
+            if corner_case:
+                thetas = (theta, phi, next_theta)
+            else:
+                thetas = (theta, next_theta)
+
+            polygon = [centre]
+            for theta in thetas:
+                # A hack to avoid ZeroDivisionError.
+                r = min(1 / (abs(math.cos(theta)) or 1.), 1 / (abs(math.sin(theta)) or 1.))
+                polygon.append((r * math.cos(theta), r * math.sin(theta)))
+            polygons.append(tuple(polygon))
+        return polygons
+
+
+def _main():
+    env = environments.basic_environment.BasicEnvironment(False, 500)
+    agent = discrete_agent.DiscreteAgent(env, discrete_dqns.dqn.DiscreteDQN(), 0.01)
+    tool = ActionsVisualTool(500, 3, 4, agent)
+    for i in range(100):
+        tool.draw()
+        tool.show()
+        time.sleep(1.)
+
+
+if __name__ == '__main__':
+    _main()

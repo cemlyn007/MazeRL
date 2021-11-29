@@ -31,25 +31,29 @@ class DiscreteAgent(abstract_agent.AbstractAgent):
         return transition, distance_to_goal
 
     def _discrete_action_to_continuous(self, discrete_action: int) -> np.ndarray:
-        if discrete_action == 0:  # Move right
+        if discrete_action == 0:
             continuous_action = self.RIGHT
-        elif discrete_action == 1:  # Move left
-            continuous_action = self.LEFT
-        elif discrete_action == 2:  # Move up
+        elif discrete_action == 1:
             continuous_action = self.UP
-        elif discrete_action == 3:  # Move down
+        elif discrete_action == 2:
+            continuous_action = self.LEFT
+        elif discrete_action == 3:
             continuous_action = self.DOWN
         else:
             raise ValueError('Unexpected value')
         return continuous_action
 
-    def get_greedy_discrete_action(self, state: np.ndarray) -> int:
+    def get_q_values(self, state: np.ndarray) -> torch.Tensor:
         with torch.no_grad():
-            state_tensor = torch.tensor(state, device=self.dqn.device)
+            state_tensor = torch.tensor(state, device=self.dqn.device,
+                                        dtype=torch.float32)
             state_tensor.unsqueeze_(0)
-            q_values_for_each_action = self.dqn.q_network(state_tensor)
-            best_discrete_action = torch.argmax(q_values_for_each_action, dim=1)
-        return best_discrete_action.item()
+            q_values = self.dqn.q_network(state_tensor).cpu()
+        q_values.squeeze_(0)
+        return q_values
+
+    def get_greedy_discrete_action(self, state: np.ndarray) -> int:
+        return self.get_q_values(state).argmax().item()
 
     def get_greedy_action(self, state: np.ndarray) -> np.ndarray:
         discrete_action = self.get_greedy_discrete_action(state)

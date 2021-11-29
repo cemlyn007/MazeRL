@@ -51,7 +51,7 @@ if __name__ == '__main__':
 
     policy_tool = greedy_policy_graphics.GreedyPolicyTool(magnification=250, agent=agent,
                                                           max_step_num=200)
-    actions_tool = ActionsVisualTool(500, agent, 10)
+    actions_tool = ActionsVisualTool(500, 10, 4, agent)
 
     hyperparameters = {
         'gamma': gamma,
@@ -96,6 +96,15 @@ if __name__ == '__main__':
         policy_img = cv2.cvtColor(policy_tool.image, cv2.COLOR_BGR2RGB)
         policy_img = torch.from_numpy(policy_img)
         writer.add_image('greedy_policy', policy_img, episode_number,
+                         dataformats='HWC')
+
+
+    def log_greedy_actions_map(draw=True):
+        if draw:
+            actions_tool.draw()
+        actions_img = cv2.cvtColor(actions_tool.image, cv2.COLOR_BGR2RGB)
+        actions_img = torch.from_numpy(actions_img)
+        writer.add_image('greedy_actions_map', actions_img, episode_number,
                          dataformats='HWC')
 
 
@@ -155,8 +164,12 @@ if __name__ == '__main__':
             policy_tool.draw()
             log_greedy_policy(draw=False)
             policy_tool.show()
+            actions_tool.draw()
+            log_greedy_actions_map(draw=False)
+            actions_tool.show()
         else:
             log_greedy_policy()
+            log_greedy_actions_map()
 
         torch.save(dqn.q_network.state_dict(),
                    os.path.join(model_path, f'q_networks_state_dict-{episode_number}.pt'))
