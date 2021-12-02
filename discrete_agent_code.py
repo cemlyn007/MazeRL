@@ -7,6 +7,7 @@ import torch
 from tqdm import tqdm
 
 import discrete_agent
+import helpers
 import tensorboard_writer
 from discrete_dqns import double_dqn
 from environments import random_environment
@@ -20,8 +21,7 @@ if __name__ == '__main__':
     np.random.seed(random_state)
     torch.manual_seed(random_state)
 
-    gamma = .9
-    lr = 5e-4  # 5e-4
+    n_actions = 16
     max_capacity = 10000
     batch_size = 256 * 3
     max_steps = 1000  # was 750
@@ -30,8 +30,8 @@ if __name__ == '__main__':
     delta = 0.0000031
     minimum_epsilon = 0.5
     sampling_eps = 1e-7
-    weight_decay = 1e-7
     tau = 5  # target network episode update rate
+    hps = helpers.Hyperparameters(gamma=0.9, lr=5.e-4, weight_decay=1.e-7)
 
     if torch.cuda.is_available():
         print('Using GPU')
@@ -44,18 +44,18 @@ if __name__ == '__main__':
 
     environment = random_environment.RandomEnvironment(display=display_game,
                                                        magnification=500)
-    dqn = double_dqn.DiscreteDoubleDQN(gamma, lr, weight_decay, device=device)
-    agent = discrete_agent.DiscreteAgent(environment, dqn, stride=0.02)
+    dqn = double_dqn.DiscreteDoubleDQN(hps, n_actions, device)
+    agent = discrete_agent.DiscreteAgent(environment, dqn, n_actions, stride=0.02)
     rb = fast_prioritised_rb.FastPrioritisedExperienceReplayBuffer(max_capacity, batch_size,
                                                                    sampling_eps, agent)
 
     policy_tool = greedy_policy_graphics.GreedyPolicyTool(magnification=250, agent=agent,
                                                           max_step_num=200)
-    actions_tool = ActionsVisualTool(500, 10, 4, agent)
+    actions_tool = ActionsVisualTool(500, 12, n_actions, agent)
 
     hyperparameters = {
-        'gamma': gamma,
-        'lr': lr,
+        'gamma': hps.gamma,
+        'lr': hps.lr,
         'max_capacity': max_capacity,
         'batch_size': batch_size,
         'max_steps': max_steps,

@@ -20,4 +20,4 @@ class DiscreteDoubleDQN(dqn_with_target_network.DiscreteDQNWithTargetNetwork):
         best_discrete_actions.unsqueeze_(-1)
         predicted_q_values = torch.gather(q_values, 1, best_discrete_actions)
         predicted_q_values.squeeze_(-1)
-        return rewards + self.gamma * predicted_q_values
+        return rewards + self.hps.gamma * predicted_q_values

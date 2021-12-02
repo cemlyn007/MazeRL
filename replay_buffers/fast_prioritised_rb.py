@@ -21,7 +21,7 @@ class FastPrioritisedExperienceReplayBuffer(replay_buffer.ReplayBuffer):
 
     def store(self, state: ndarray, action: int, reward: float,
               new_state: ndarray):
-        entry = torch.tensor((*state, action, reward, *new_state))
+        entry = torch.tensor((*state, action, reward, *new_state), dtype=torch.float32)
         self.container.append(entry)
         weight = max(self.weights) if len(self.weights) > 0 else 1.
         self.weights.append(weight)

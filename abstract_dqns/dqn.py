@@ -3,10 +3,8 @@ import torch
 
 class AbstractDQN(torch.nn.Module):
 
-    def __init__(self, gamma: float = 0.9, lr: float = 0.001, device: torch.device = None):
+    def __init__(self, device: torch.device = None):
         super().__init__()
-        self.gamma = gamma
-        self.lr = lr
         self.device = self.choose_device(device)
         self.q_network = None
         self.optimizer = None

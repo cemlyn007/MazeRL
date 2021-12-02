@@ -4,44 +4,29 @@ import torch
 import abstract_agent
 import discrete_dqns.dqn
 import environments.abstract_environment
+import helpers
 
 
 class DiscreteAgent(abstract_agent.AbstractAgent):
 
     def __init__(self, environment: environments.abstract_environment.AbstractEnvironment,
-                 dqn: discrete_dqns.dqn.DiscreteDQN, stride: float):
+                 dqn: discrete_dqns.dqn.DiscreteDQN, n_actions: int, stride: float):
         super().__init__(environment, dqn)
-        self.RIGHT = np.array([stride, 0], dtype=np.float32)
-        self.LEFT = np.array([-stride, 0], dtype=np.float32)
-        self.UP = np.array([0, stride], dtype=np.float32)
-        self.DOWN = np.array([0, -stride], dtype=np.float32)
+        self._n_actions = n_actions
+        self._actions = self._create_actions(n_actions, stride)
 
     def step(self, epsilon: float = 0) -> tuple[tuple, float]:
         if epsilon <= np.random.uniform():
             discrete_action = self.get_greedy_discrete_action(self.state)
         else:
-            discrete_action = np.random.randint(0, 4)
-        continuous_action = self._discrete_action_to_continuous(discrete_action)
+            discrete_action = np.random.randint(0, self._n_actions)
         next_state, distance_to_goal = self.environment.step(self.state,
-                                                             continuous_action)
+                                                             self._actions[discrete_action])
         reward = self.compute_reward(distance_to_goal)
         transition = (self.state, discrete_action, reward, next_state)
         self.state = next_state
         self.total_reward += reward
         return transition, distance_to_goal
-
-    def _discrete_action_to_continuous(self, discrete_action: int) -> np.ndarray:
-        if discrete_action == 0:
-            continuous_action = self.RIGHT
-        elif discrete_action == 1:
-            continuous_action = self.UP
-        elif discrete_action == 2:
-            continuous_action = self.LEFT
-        elif discrete_action == 3:
-            continuous_action = self.DOWN
-        else:
-            raise ValueError('Unexpected value')
-        return continuous_action
 
     def get_q_values(self, state: np.ndarray) -> torch.Tensor:
         with torch.no_grad():
@@ -57,4 +42,12 @@ class DiscreteAgent(abstract_agent.AbstractAgent):
 
     def get_greedy_action(self, state: np.ndarray) -> np.ndarray:
         discrete_action = self.get_greedy_discrete_action(state)
-        return self._discrete_action_to_continuous(discrete_action)
+        return self._actions[discrete_action]
+
+    def _create_actions(self, n_actions: int, stride: float) -> list[np.ndarray]:
+        actions = []
+        for i in range(n_actions):
+            theta = 2. * np.pi * i / n_actions
+            action = stride * np.array([np.cos(theta), np.sin(theta)])
+            actions.append(helpers.trunc(action, 5))
+        return actions
