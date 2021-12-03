@@ -1,6 +1,7 @@
 import numpy as np
 import torch
 
+import helpers
 from abstract_dqns import dqn
 from abstract_dqns import stub_network
 
@@ -10,15 +11,14 @@ TORCH_I = torch.tensor(np.complex(0, 1))
 
 class ContinuousDQN(dqn.AbstractDQN):
 
-    def __init__(self, gamma: float = 0.9, lr: float = 0.001, weight_decay: float = 0.,
-                 device: torch.device = None):
-        super().__init__(gamma, lr, device)
-        self.weight_decay = weight_decay
+    def __init__(self, hps: helpers.Hyperparameters, device: torch.device = None):
+        super().__init__(device)
+        self.hps = hps
         self.q_network = stub_network.Network(2 + 1, 1).to(self.device)
         self.optimizer = torch.optim.Adam(self.q_network.parameters(),
-                                          lr=self.lr,
+                                          lr=hps.lr,
                                           betas=(0.9, 0.975), eps=0.1,
-                                          weight_decay=self.weight_decay,
+                                          weight_decay=hps.weight_decay,
                                           amsgrad=True)
         self.cross_entropy_max_iters = 16
         self.cross_entropy_m = 64
@@ -38,7 +38,7 @@ class ContinuousDQN(dqn.AbstractDQN):
         inputs = self.make_network_inputs(states, actions)
         predictions = self.q_network(inputs).squeeze(-1)
         max_q_values = self.get_greedy_continuous_q_values(next_states)
-        targets = rewards + self.gamma * max_q_values
+        targets = rewards + self.hps.gamma * max_q_values
         loss = self.loss_f(predictions, targets)
         return loss
 

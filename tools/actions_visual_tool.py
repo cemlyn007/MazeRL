@@ -51,7 +51,8 @@ class ActionsVisualTool(tools.abstract_graphics.AbstractGraphics):
                     pts = np.array([[self.convert((x * dt + x_mid, y * dt + y_mid))
                                      for (x, y) in pts]],
                                    dtype=np.int32)
-                    cv2.fillPoly(img=self.image, pts=pts, color=(255 - normalised[k], normalised[k], normalised[k]))
+                    cv2.fillPoly(img=self.image, pts=pts,
+                                 color=(255 - normalised[k], normalised[k], normalised[k]))
 
         for line in self.grids():
             cv2.line(self.image, self.convert(line[0]), self.convert(line[1]),

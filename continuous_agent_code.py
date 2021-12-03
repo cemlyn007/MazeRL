@@ -9,6 +9,7 @@ from tqdm import tqdm
 import continuous_agent
 import continuous_dqns.double_dqn
 import environments.random_environment
+import helpers
 import tensorboard_writer
 import tools.greedy_policy_graphics
 from replay_buffers import fast_prioritised_rb
@@ -19,8 +20,6 @@ if __name__ == '__main__':
     np.random.seed(random_state)
     torch.manual_seed(random_state)
 
-    gamma = .9
-    lr = 0.0003
     max_capacity = 10000
     batch_size = 256 * 3
     max_steps = 1000  # was 750
@@ -29,8 +28,9 @@ if __name__ == '__main__':
     delta = 0.000071
     minimum_epsilon = 0.3
     sampling_eps = 1e-7
-    weight_decay = 1e-7
     tau = 5  # target network episode update rate
+
+    hps = helpers.Hyperparameters(gamma=.9, lr=0.0003, weight_decay=1e-7)
 
     if torch.cuda.is_available():
         print('Using GPU')
@@ -43,8 +43,7 @@ if __name__ == '__main__':
 
     environment = environments.random_environment.RandomEnvironment(display=display_game,
                                                                     magnification=500)
-    dqn = continuous_dqns.double_dqn.ContinuousDoubleDQN(gamma, lr, device=device,
-                                                         weight_decay=weight_decay)
+    dqn = continuous_dqns.double_dqn.ContinuousDoubleDQN(hps, device)
     agent = continuous_agent.ContinuousAgent(environment, dqn, stride=0.02)
     rb = fast_prioritised_rb.FastPrioritisedExperienceReplayBuffer(max_capacity, batch_size,
                                                                    sampling_eps, agent)
@@ -53,8 +52,8 @@ if __name__ == '__main__':
                                                                 max_step_num=200)
 
     hyperparameters = {
-        'gamma': gamma,
-        'lr': lr,
+        'gamma': hps.gamma,
+        'lr': hps.lr,
         'max_capacity': max_capacity,
         'batch_size': batch_size,
         'max_steps': max_steps,

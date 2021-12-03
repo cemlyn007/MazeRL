@@ -2,6 +2,7 @@ import copy
 
 import torch
 
+import helpers
 from abstract_dqns import dqn_with_target_network
 from continuous_dqns import dqn
 
@@ -9,11 +10,9 @@ from continuous_dqns import dqn
 class ContinuousDQNWithTargetNetwork(dqn.ContinuousDQN,
                                      dqn_with_target_network.AbstractDQNWithTargetNetwork):
 
-    def __init__(self, gamma: float = 0.9, lr: float = 0.001, weight_decay: float = 0.0,
-                 device: torch.device = None):
-        dqn_with_target_network.AbstractDQNWithTargetNetwork.__init__(self, gamma, lr,
-                                                                      device)
-        dqn.ContinuousDQN.__init__(self, gamma, lr, weight_decay, device)
+    def __init__(self, hps: helpers.Hyperparameters, device: torch.device = None):
+        dqn_with_target_network.AbstractDQNWithTargetNetwork.__init__(self, device)
+        dqn.ContinuousDQN.__init__(self, hps, device)
         self.target_network = copy.deepcopy(self.q_network)
 
     def compute_losses(self, transitions: torch.Tensor) -> torch.Tensor:

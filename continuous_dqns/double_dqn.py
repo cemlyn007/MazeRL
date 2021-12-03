@@ -20,7 +20,7 @@ class ContinuousDoubleDQN(dqn_with_target_network.ContinuousDQNWithTargetNetwork
         best_actions = self.compute_greedy_network_actions_using_target(next_states)
         inputs = self.make_network_inputs(next_states, best_actions)
         predictions = self.q_network(inputs).squeeze(-1)
-        return rewards + self.gamma * predictions
+        return rewards + self.hps.gamma * predictions
 
     def compute_greedy_network_actions_using_target(self, states: torch.Tensor) -> torch.Tensor:
         actions, _ = self.cross_entropy_network_actions_selection(states, self.target_network)
