@@ -16,9 +16,7 @@ class ContinuousDQN(dqn.AbstractDQN):
         self.hps = hps
         self.q_network = stub_network.Network(2 + 1, 1).to(self.device)
         self.optimizer = torch.optim.Adam(self.q_network.parameters(),
-                                          lr=hps.lr,
-                                          betas=(0.9, 0.975), eps=0.1,
-                                          weight_decay=hps.weight_decay,
+                                          lr=hps.lr, weight_decay=hps.weight_decay,
                                           amsgrad=True)
         self.cross_entropy_max_iters = 16
         self.cross_entropy_m = 64
@@ -37,7 +35,7 @@ class ContinuousDQN(dqn.AbstractDQN):
         states, actions, rewards, next_states = self.unpack_transitions(transitions)
         inputs = self.make_network_inputs(states, actions)
         predictions = self.q_network(inputs).squeeze(-1)
-        max_q_values = self.get_greedy_continuous_q_values(next_states)
+        _, max_q_values = self.cross_entropy_network_actions_selection(states, self.q_network)
         targets = rewards + self.hps.gamma * max_q_values
         loss = self.loss_f(predictions, targets)
         return loss
@@ -102,15 +100,6 @@ class ContinuousDQN(dqn.AbstractDQN):
         actions.sub_(torch.pi)
         actions.div_(torch.pi)
         return actions  # output ranges(-1,+1)
-
-    @staticmethod
-    def network_actions_to_angles(network_inputs: torch.Tensor) -> torch.Tensor:
-        assert network_inputs.abs() <= 1.
-        return network_inputs.mul(torch.pi)  # output ranges(-pi,+pi)
-
-    def get_greedy_continuous_q_values(self, states: torch.Tensor) -> torch.Tensor:
-        _, values = self.cross_entropy_network_actions_selection(states, self.q_network)
-        return values
 
     def get_greedy_continuous_angles(self, states: torch.Tensor) -> torch.Tensor:
         angles, _ = self.cross_entropy_network_actions_selection(states, self.q_network)

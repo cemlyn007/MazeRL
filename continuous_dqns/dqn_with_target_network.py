@@ -18,13 +18,16 @@ class ContinuousDQNWithTargetNetwork(dqn.ContinuousDQN,
     def compute_losses(self, transitions: torch.Tensor) -> torch.Tensor:
         states, actions, rewards, next_states = self.unpack_transitions(transitions)
         inputs = self.make_network_inputs(states, actions)
-        predictions = self.q_network(inputs).squeeze(-1)
+        predictions = self.q_network(inputs)
+        predictions.squeeze_(1)
         targets = self.compute_target_q_values(rewards, next_states)
         loss = self.loss_f(predictions, targets)
         return loss
 
     def compute_target_q_values(self, rewards: torch.Tensor,
                                 next_states: torch.Tensor) -> torch.Tensor:
-        _, q_values = self.cross_entropy_network_actions_selection(next_states,
-                                                                   self.target_network)
-        return rewards + self.hps.gamma * q_values
+        _, output = self.cross_entropy_network_actions_selection(next_states,
+                                                                 self.target_network)
+        output.mul_(self.hps.gamma)
+        output.add_(rewards)
+        return output

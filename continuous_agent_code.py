@@ -21,16 +21,16 @@ if __name__ == '__main__':
     torch.manual_seed(random_state)
 
     max_capacity = 10000
-    batch_size = 256 * 3
+    batch_size = 128
     max_steps = 1000  # was 750
     max_episodes = 50  # was 250
     epsilon = 1.
     delta = 0.000071
     minimum_epsilon = 0.3
     sampling_eps = 1e-7
-    tau = 5  # target network episode update rate
+    tau = 50  # target network episode update rate
 
-    hps = helpers.Hyperparameters(gamma=.9, lr=0.0003, weight_decay=1e-7)
+    hps = helpers.Hyperparameters(gamma=.9, lr=0.01, weight_decay=1e-7)
 
     if torch.cuda.is_available():
         print('Using GPU')
@@ -94,7 +94,7 @@ if __name__ == '__main__':
             policy_tool.draw()
         policy_img = cv2.cvtColor(policy_tool.image, cv2.COLOR_BGR2RGB)
         policy_img = torch.from_numpy(policy_img)
-        writer.add_image('greedy_policy', policy_img, episode_number,
+        writer.add_image('greedy_policy', policy_img, episode_id,
                          dataformats='HWC')
 
 
@@ -102,14 +102,13 @@ if __name__ == '__main__':
     if not os.path.isdir(model_path):
         os.makedirs(model_path)
 
+    step_id = 0
     episodes_iter = tqdm(range(max_episodes))
-    for episode_number in episodes_iter:
+    for episode_id in episodes_iter:
         has_reached_goal = False
         episode_loss_list = []
         episode_reward_list = []
         agent.reset()
-        if dqn.HAS_TARGET_NETWORK and (episode_number % tau == 0):
-            dqn.update_target_network()
         agent.dqn.train()
         for step_num in range(max_steps):
             transition, distance_to_goal = agent.step(epsilon)
@@ -128,13 +127,14 @@ if __name__ == '__main__':
                 epsilon = max(epsilon, minimum_epsilon)
                 episodes_iter.set_description(f'Epsilon: {epsilon:.3f} ')
 
-            # policy_tool.draw()
-            # policy_tool.show()
+            if dqn.HAS_TARGET_NETWORK and (step_id % tau == 0):
+                dqn.update_target_network()
+            step_id += 1
 
         agent.dqn.eval()
         agent.reset()
         for step_num in range(max_steps):
-            transition, distance_to_goal = agent.step(0.0)
+            transition, distance_to_goal = agent.step(0.)
             state, action, reward, next_state = transition
             rb.store(state, action, reward, next_state)
 
@@ -143,13 +143,13 @@ if __name__ == '__main__':
                 break
 
         rewards = np.array(episode_reward_list)
-        log('reward', rewards, episode_number)
-        writer.add_histogram('reward_dist', rewards, episode_number)
+        log('reward', rewards, episode_id)
+        writer.add_histogram('reward_dist', rewards, episode_id)
         step_losses = np.array(episode_loss_list)
-        log('loss', step_losses, episode_number)
+        log('loss', step_losses, episode_id)
         writer.add_hparams(hyperparameters, metrics(rewards))
-        writer.add_scalar('reached_goal', has_reached_goal, episode_number)
-        writer.add_scalar('epsilon', epsilon, episode_number)
+        writer.add_scalar('reached_goal', has_reached_goal, episode_id)
+        writer.add_scalar('epsilon', epsilon, episode_id)
 
         if display_tools:
             policy_tool.draw()
@@ -159,9 +159,9 @@ if __name__ == '__main__':
             log_greedy_policy()
 
         torch.save(dqn.q_network.state_dict(),
-                   os.path.join(model_path, f'q_networks_state_dict-{episode_number}.pt'))
+                   os.path.join(model_path, f'q_networks_state_dict-{episode_id}.pt'))
         torch.save(dqn.target_network.state_dict(),
-                   os.path.join(model_path, f'target_networks_state_dict-{episode_number}.pt'))
+                   os.path.join(model_path, f'target_networks_state_dict-{episode_id}.pt'))
 
     policy_tool.draw()
     policy_tool.save_image('greedy_policy_reward.png')
