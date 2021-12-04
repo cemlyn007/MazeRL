@@ -128,8 +128,8 @@ if __name__ == '__main__':
                 epsilon = max(epsilon, minimum_epsilon)
                 episodes_iter.set_description(f'Epsilon: {epsilon:.3f} ')
 
-            policy_tool.draw()
-            policy_tool.show()
+            # policy_tool.draw()
+            # policy_tool.show()
 
         agent.dqn.eval()
         agent.reset()
