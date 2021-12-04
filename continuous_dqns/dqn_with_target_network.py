@@ -26,7 +26,7 @@ class ContinuousDQNWithTargetNetwork(dqn.ContinuousDQN,
     def compute_target_q_values(self, rewards: torch.Tensor,
                                 next_states: torch.Tensor) -> torch.Tensor:
         max_next_q_values = self.compute_greedy_q_values_using_target(next_states)
-        return rewards + self.gamma * max_next_q_values
+        return rewards + self.hps.gamma * max_next_q_values
 
     def compute_greedy_q_values_using_target(self, next_states: torch.Tensor) -> torch.Tensor:
         _, q_values = self.cross_entropy_network_actions_selection(next_states, self.target_network)
