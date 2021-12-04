@@ -23,7 +23,7 @@ class AbstractAgent:
 
     @staticmethod
     def compute_reward(distance_to_goal: np.ndarray) -> float:
-        return (1 - distance_to_goal).astype(distance_to_goal)
+        return -distance_to_goal
 
     def get_greedy_action(self, state: np.ndarray) -> np.ndarray:
         raise NotImplementedError

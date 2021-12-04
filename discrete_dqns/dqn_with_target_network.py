@@ -18,7 +18,8 @@ class DiscreteDQNWithTargetNetwork(dqn_with_target_network.AbstractDQNWithTarget
     def compute_losses(self, transitions: torch.Tensor) -> torch.Tensor:
         states, actions, rewards, next_states = self.unpack_transitions(transitions)
         all_q_values = self.q_network(states)
-        predictions = all_q_values.gather(1, actions).flatten(0)
+        predictions = all_q_values.gather(1, actions)
+        predictions.squeeze_(1)
         targets = self.compute_q_values_using_target(rewards, next_states)
         loss = self.loss_f(predictions, targets)
         return loss

@@ -40,7 +40,7 @@ class ContinuousAgent(abstract_agent.AbstractAgent):
 
     @staticmethod
     def compute_reward(distance_to_goal: np.ndarray) -> np.ndarray:
-        return np.square(1 - distance_to_goal).astype(distance_to_goal.dtype)
+        return -distance_to_goal
 
     def get_greedy_action(self, state: np.ndarray) -> np.ndarray:
         angle = self._get_greedy_angle(state)
