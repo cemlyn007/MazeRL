@@ -2,6 +2,7 @@ import torch
 
 
 class AbstractDQN(torch.nn.Module):
+    HAS_TARGET_NETWORK = False
 
     def __init__(self, device: torch.device = None):
         super().__init__()
@@ -18,10 +19,6 @@ class AbstractDQN(torch.nn.Module):
             return torch.device('cuda')
         else:
             return torch.device('cpu')
-
-    @staticmethod
-    def has_target_network() -> bool:
-        return False
 
     def train_q_network(self, transition: torch.Tensor) -> torch.Tensor:
         self.optimizer.zero_grad()

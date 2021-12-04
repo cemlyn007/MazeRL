@@ -108,7 +108,7 @@ if __name__ == '__main__':
         episode_loss_list = []
         episode_reward_list = []
         agent.reset()
-        if dqn.has_target_network() and (episode_number % tau == 0):
+        if dqn.HAS_TARGET_NETWORK and (episode_number % tau == 0):
             dqn.update_target_network()
         agent.dqn.train()
         for step_num in range(max_steps):

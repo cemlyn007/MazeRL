@@ -11,5 +11,6 @@ class ContinuousDoubleDQN(dqn_with_target_network.ContinuousDQNWithTargetNetwork
         actions, _ = self.cross_entropy_network_actions_selection(next_states,
                                                                   self.target_network)
         inputs = self.make_network_inputs(next_states, actions)
-        predictions = self.q_network(inputs).squeeze(-1)
+        predictions = self.q_network(inputs)
+        predictions.squeeze_(1)
         return rewards + self.hps.gamma * predictions
