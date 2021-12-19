@@ -16,10 +16,10 @@ class ContinuousDQN(dqn.AbstractDQN):
         self.hps = hps
         self.q_network = stub_network.Network(2 + 1, 1).to(self.device)
         self.optimizer = torch.optim.SGD(self.q_network.parameters(),
-                                         lr=hps.lr, weight_decay=hps.weight_decay)
-        self.cross_entropy_max_iters = 16
+                                         lr=hps.lr)
+        self.cross_entropy_max_iters = 8
         self.cross_entropy_m = 64
-        self.cross_entropy_n = 12
+        self.cross_entropy_n = 8
 
     @staticmethod
     def unpack_transitions(transitions: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor,
