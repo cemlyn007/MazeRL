@@ -24,7 +24,6 @@ class AbstractDQN(torch.nn.Module):
         self.optimizer.zero_grad()
         losses = self.compute_losses(transition)
         losses.sum().backward()
-        torch.nn.utils.clip_grad_norm_(self.q_network.parameters(), 1.)
         self.optimizer.step()
         return losses.detach().cpu()
 

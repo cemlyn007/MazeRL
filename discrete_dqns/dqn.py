@@ -11,8 +11,7 @@ class DiscreteDQN(dqn.AbstractDQN):
         super().__init__(device)
         self.hps = hps
         self.q_network = network.DiscreteNetwork(2, n_actions).to(self.device)
-        self.optimizer = torch.optim.Adam(self.q_network.parameters(), hps.lr,
-                                          weight_decay=hps.weight_decay)
+        self.optimizer = torch.optim.SGD(self.q_network.parameters(), hps.lr)
         self.loss_f = torch.nn.L1Loss(reduction='none')
 
     @staticmethod

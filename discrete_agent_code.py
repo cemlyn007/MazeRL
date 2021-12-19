@@ -21,17 +21,17 @@ if __name__ == '__main__':
     np.random.seed(random_state)
     torch.manual_seed(random_state)
 
-    n_actions = 8
+    n_actions = 16
     max_capacity = 10000
-    batch_size = 256 * 3
-    max_steps = 1000  # was 750
-    max_episodes = 100  # was 250
+    batch_size = 128
+    max_steps = 750  # was 750
+    max_episodes = 300  # was 250
     epsilon = 1.
     delta = 0.0000031
     minimum_epsilon = 0.5
     sampling_eps = 1e-7
-    tau = 50  # target network episode update rate
-    hps = helpers.Hyperparameters(gamma=0.9, lr=5.e-4, weight_decay=1.e-7)
+    tau = 100  # target network episode update rate
+    hps = helpers.Hyperparameters(gamma=0.9, lr=1.e-3)
 
     if torch.cuda.is_available():
         print('Using GPU')

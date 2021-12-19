@@ -8,6 +8,7 @@ from tqdm import tqdm
 
 import continuous_agent
 import continuous_dqns.double_dqn
+import continuous_dqns.dqn_with_target_network
 import environments.random_environment
 import helpers
 import tensorboard_writer
@@ -20,17 +21,17 @@ if __name__ == '__main__':
     np.random.seed(random_state)
     torch.manual_seed(random_state)
 
-    max_capacity = 10000
-    batch_size = 128
+    max_capacity = 5000
+    batch_size = 256*2
     max_steps = 1000  # was 750
-    max_episodes = 50  # was 250
+    max_episodes = 250  # was 250
     epsilon = 1.
     delta = 0.000071
-    minimum_epsilon = 0.3
+    minimum_epsilon = 0.5
     sampling_eps = 1e-7
     tau = 50  # target network episode update rate
 
-    hps = helpers.Hyperparameters(gamma=.9, lr=0.01, weight_decay=1e-7)
+    hps = helpers.Hyperparameters(gamma=.99, lr=0.0001, weight_decay=1e-7)
 
     if torch.cuda.is_available():
         print('Using GPU')
