@@ -8,8 +8,7 @@ class RandomEnvironment(abstract_environment.AbstractEnvironment):
 
     def __init__(self, display: bool, magnification: int):
         super().__init__(display, magnification, 'Random Environment')
-        self.free_blocks = None
-        self._define_environment_space()
+        self.init_state, self.free_blocks, self.goal_state = self._get_environment_space()
 
         self.agent_radius = int(0.01 * self.magnification)
         self.agent_colour = (0, 0, 255)
@@ -28,12 +27,12 @@ class RandomEnvironment(abstract_environment.AbstractEnvironment):
         self._predrawn_environ = np.zeros_like(self.image)
         self.predraw_environ()
 
-    def _define_environment_space(self) -> None:
+    def _get_environment_space(self) -> tuple[np.ndarray, list[np.ndarray], np.ndarray]:
         init_state_x = 0.05
         init_state_y = np.random.uniform(0.05, 0.95)
-        self.init_state = np.array([init_state_x, init_state_y],
+        init_state = np.array([init_state_x, init_state_y],
                                    dtype=np.float32)
-        self.free_blocks = []
+        free_blocks = []
         block_bottom = init_state_y - np.random.uniform(0.1, 0.2)
         block_top = init_state_y + np.random.uniform(0.1, 0.2)
         block_left = 0.02
@@ -41,7 +40,7 @@ class RandomEnvironment(abstract_environment.AbstractEnvironment):
         top_left = (block_left, block_top)
         bottom_right = (block_right, block_bottom)
         block = (top_left, bottom_right)
-        self.free_blocks.append(block)
+        free_blocks.append(block)
         prev_top = top_left[1]
         prev_bottom = bottom_right[1]
         prev_right = bottom_right[0]
@@ -73,7 +72,7 @@ class RandomEnvironment(abstract_environment.AbstractEnvironment):
                 else:
                     is_within_boundary = True
             block = (top_left, bottom_right)
-            self.free_blocks.append(block)
+            free_blocks.append(block)
             prev_top = block_top
             prev_bottom = block_bottom
             prev_right = block_right
@@ -87,9 +86,10 @@ class RandomEnvironment(abstract_environment.AbstractEnvironment):
         top_left = (block_left, block_top)
         bottom_right = (block_right, block_bottom)
         block = (top_left, bottom_right)
-        self.free_blocks.append(block)
+        free_blocks.append(block)
         y_goal_state = np.random.uniform(block_bottom + 0.01, block_top - 0.01)
-        self.goal_state = np.array([0.95, y_goal_state], dtype=np.float32)
+        goal_state = np.array([0.95, y_goal_state], dtype=np.float32)
+        return init_state, free_blocks, goal_state
 
     def reset(self) -> np.ndarray:
         return self.init_state
