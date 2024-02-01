@@ -15,8 +15,10 @@ def benchmark(run_id: str):
     from replay_buffers import fast_prioritised_rb
     from tools import greedy_policy_graphics
     from tools.actions_visual_tool import ActionsVisualTool
+    import random
 
     random_state = 816673
+    random.seed(random_state)
     np.random.seed(random_state)
     torch.manual_seed(random_state)
 
@@ -181,9 +183,10 @@ if __name__ == "__main__":
     import functools
     import multiprocessing
     import time
+    import sys
 
     for i in range(5):
-        target = functools.partial(benchmark, f"baseline_{i}")
+        target = functools.partial(benchmark, f"{sys.argv[1]}_{i}")
         process = multiprocessing.Process(target=target)
         start = time.monotonic()
         process.start()
