@@ -185,7 +185,7 @@ if __name__ == "__main__":
     import time
     import sys
 
-    for i in range(5):
+    for i in range(int(sys.argv[2])):
         target = functools.partial(benchmark, f"{sys.argv[1]}_{i}")
         process = multiprocessing.Process(target=target)
         start = time.monotonic()
