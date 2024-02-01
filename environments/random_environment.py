@@ -27,7 +27,7 @@ class RandomEnvironment(abstract_environment.AbstractEnvironment):
         self._predrawn_environ = np.zeros_like(self.image)
         self.predraw_environ()
 
-    def _get_environment_space(self) -> tuple[np.ndarray, list[np.ndarray], np.ndarray]:
+    def _get_environment_space(self) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
         init_state_x = 0.05
         init_state_y = np.random.uniform(0.05, 0.95)
         init_state = np.array([init_state_x, init_state_y],
@@ -87,6 +87,7 @@ class RandomEnvironment(abstract_environment.AbstractEnvironment):
         bottom_right = (block_right, block_bottom)
         block = (top_left, bottom_right)
         free_blocks.append(block)
+        free_blocks = np.array(free_blocks, dtype=np.float32)
         y_goal_state = np.random.uniform(block_bottom + 0.01, block_top - 0.01)
         goal_state = np.array([0.95, y_goal_state], dtype=np.float32)
         return init_state, free_blocks, goal_state
@@ -95,24 +96,21 @@ class RandomEnvironment(abstract_environment.AbstractEnvironment):
         return self.init_state
 
     def step(self, state: np.ndarray, action: np.ndarray) -> tuple[np.ndarray, float]:
-        if np.linalg.norm(action) > 0.02:
-            print('TOO BIG')
-            next_state = state
-        else:
-            next_state = state + action
-            if (next_state[0] < 0.0 or next_state[0] > 1.0
-                    or next_state[1] < 0.0 or next_state[1] > 1.0):
-                next_state = state
-            is_agent_in_free_space = False
-            for block in self.free_blocks:
-                if (block[0][0] < next_state[0] < block[1][0]
-                        and block[1][1] < next_state[1] < block[0][1]):
-                    is_agent_in_free_space = True
-                    break
-            if not is_agent_in_free_space:
-                next_state = state
+        next_state = np.where(np.linalg.norm(action) > 0.02, state, state + action)
+        in_bounds = np.any(
+            np.logical_and(
+                np.logical_and(
+                    self.free_blocks[:, 0, 0] < next_state[0],
+                    next_state[0] < self.free_blocks[:, 1, 0],
+                ),
+                np.logical_and(
+                    self.free_blocks[:, 1, 1] < next_state[1],
+                    next_state[1] < self.free_blocks[:, 0, 1],
+                ),
+            )
+        )
+        next_state = np.where(in_bounds, next_state, state)
         distance_to_goal = np.linalg.norm(next_state - self.goal_state)
-
         if self.display:
             self.draw(next_state)
             self.show()
