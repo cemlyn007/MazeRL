@@ -22,11 +22,10 @@ def benchmark(run_id: str):
     n_actions = 4
     max_capacity = 5000
     batch_size = 32
-    max_steps = 750  # was 750
-    max_episodes = 750  # was 250
+    max_steps = 750
+    max_episodes = 750
     epsilon = 1.0
-    delta = 0.0000008  # Did it 27 times when 0.0000001 but by the end epsilonw as only just under 0.9 :3
-    # 0.00000015 and 1500 works but 18 minute run time sucks!
+    delta = 0.0000008
     minimum_epsilon = 0.1
     sampling_eps = 1e-7
     tau = 50  # target network episode update rate
