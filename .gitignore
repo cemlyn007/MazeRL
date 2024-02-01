@@ -2,3 +2,4 @@
 /.idea/
 /.spyproject/
 /models/
+__pycache__
