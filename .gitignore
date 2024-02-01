@@ -3,3 +3,4 @@
 /.spyproject/
 /models/
 __pycache__
+.vscode
