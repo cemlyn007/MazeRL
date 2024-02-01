@@ -1,7 +1,4 @@
 def benchmark(run_id: str):
-    import os
-    from datetime import datetime
-
     import cv2
     import numpy as np
     import torch
