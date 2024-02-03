@@ -25,18 +25,10 @@ class ActionsVisualTool(tools.abstract_graphics.AbstractGraphics):
         self.image = np.zeros([int(self.magnification),
                                int(self.magnification), 3],
                               dtype=np.uint8)
-
-    def grids(self) -> list[tuple[Point, Point]]:
-        grids = []
-        for i in range(1, self.n_cells):
-            pos = i / self.n_cells
-            grids.extend((((0., pos), (1., pos)),
-                          ((pos, 0.), (pos, 1.))))
-        return grids
+        self._unit_pts = unit_pts = self._get_unit_square_pie()
 
     def draw(self) -> None:
         self.image.fill(0)
-        unit_pts = self._get_unit_square_pie()
         dt = 1. / self.n_cells / 2.
         for i in range(self.n_cells):
             x_mid = i / self.n_cells + dt
@@ -47,16 +39,27 @@ class ActionsVisualTool(tools.abstract_graphics.AbstractGraphics):
                 normalised = ((q_values - q_values.min())
                               / (q_values.max() - q_values.min()) * 255.).round().tolist()
                 normalised = list(map(int, normalised))
-                for k, pts in enumerate(unit_pts):
+                for k, pts in enumerate(self._unit_pts):
                     pts = np.array([[self.convert((x * dt + x_mid, y * dt + y_mid))
                                      for (x, y) in pts]],
                                    dtype=np.int32)
                     cv2.fillPoly(img=self.image, pts=pts,
                                  color=(255 - normalised[k], normalised[k], normalised[k]))
 
-        for line in self.grids():
-            cv2.line(self.image, self.convert(line[0]), self.convert(line[1]),
-                     color=(255, 255, 255))
+        for i in range(self.n_cells):
+            pos = i / self.n_cells
+            cv2.line(
+                self.image,
+                self.convert((0.0, pos)),
+                self.convert((1.0, pos)),
+                color=(255, 255, 255),
+            )
+            cv2.line(
+                self.image,
+                self.convert((pos, 0.0)),
+                self.convert((pos, 1.0)),
+                color=(255, 255, 255),
+            )
 
     def _get_unit_square_pie(self) -> list[tuple[Point, ...]]:
         polygons = []
