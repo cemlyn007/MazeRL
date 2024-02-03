@@ -86,12 +86,17 @@ class ActionsVisualTool(tools.abstract_graphics.AbstractGraphics):
 
 def _main():
     env = environments.basic_environment.BasicEnvironment(False, 500)
-    agent = discrete_agent.DiscreteAgent(env, discrete_dqns.dqn.DiscreteDQN(), 0.01)
+    agent = discrete_agent.DiscreteAgent(
+        env,
+        discrete_dqns.dqn.DiscreteDQN(discrete_dqns.dqn.helpers.Hyperparameters(), 4),
+        4,
+        0.01,
+    )
     tool = ActionsVisualTool(500, 3, 4, agent)
     for i in range(100):
         tool.draw()
         tool.show()
-        time.sleep(1.)
+        time.sleep(1.0)
 
 
 if __name__ == '__main__':
