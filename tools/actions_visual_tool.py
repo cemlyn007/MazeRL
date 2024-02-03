@@ -75,11 +75,17 @@ class ActionsVisualTool(tools.abstract_graphics.AbstractGraphics):
             else:
                 thetas = (theta, next_theta)
 
-            polygon = [centre]
-            for theta in thetas:
-                # A hack to avoid ZeroDivisionError.
-                r = min(1 / (abs(math.cos(theta)) or 1.), 1 / (abs(math.sin(theta)) or 1.))
-                polygon.append((r * math.cos(theta), r * math.sin(theta)))
+            cos_theta = np.cos(thetas)
+            sin_theta = np.sin(thetas)
+            abs_cos_theta = np.abs(cos_theta)
+            abs_sin_theta = np.abs(sin_theta)
+            inverse_cos_theta = np.where(abs_cos_theta > 0.0, 1 / abs_cos_theta, 1.0)
+            inverse_sin_theta = np.where(abs_sin_theta > 0.0, 1 / abs_sin_theta, 1.0)
+            rs = np.minimum(inverse_cos_theta, inverse_sin_theta)
+            polygon = np.concatenate(
+                (np.array([centre]), rs * np.array([cos_theta, sin_theta])), axis=0
+            )
+
             polygons.append(tuple(polygon))
         return polygons
 
