@@ -1,6 +1,6 @@
 import math
 import time
-
+import torch
 import cv2
 import numpy as np
 
@@ -28,33 +28,30 @@ class ActionsVisualTool(tools.abstract_graphics.AbstractGraphics):
         self._unit_pts  = self._get_unit_square_pie()
         self._states = self._get_states()
 
-    def _get_states(self) -> np.ndarray:
-        states = []
-        dt = 1.0 / self.n_cells / 2.0
-        for i in range(self.n_cells):
-            x_mid = i / self.n_cells + dt
-            for j in range(self.n_cells):
-                y_mid = j / self.n_cells + dt
-                state = (x_mid, y_mid)
-                states.append(state)
-        return np.array(states, dtype=np.float64)
-
     def draw(self) -> None:
         dt = 1.0 / self.n_cells / 2.0
 
-        for state in self._states:
-            q_values = self.agent.get_q_values(state)
-            min_max_scaled_q_values = (q_values - q_values.min()) / (
-                q_values.max() - q_values.min()
-            )
-            intensity = (min_max_scaled_q_values * 255.0).round()
-            intensity = np.asarray(intensity, dtype=np.uint8)
+        batch_q_values = self.agent.get_batch_q_values(self._states)
+        batch_min_max_scaled_q_values = (batch_q_values - batch_q_values.min(dim=1, keepdim=True).values) / (
+            batch_q_values.max(dim=1, keepdim=True).values - batch_q_values.min(dim=1, keepdim=True).values
+        )
+        batch_intensity = (
+            (batch_min_max_scaled_q_values * 255.0).round().to(torch.uint8)
+        )
+        batch_intensity = batch_intensity.numpy()
 
+        for i in range(self.n_cells * self.n_cells):
+            intensity = batch_intensity[i]
             for k, pts in enumerate(self._unit_pts):
                 pts = np.array(
                     [
                         [
-                            self.convert((x * dt + state[0], y * dt + state[1]))
+                            self.convert(
+                                (
+                                    x * dt + self._states[i, 0].item(),
+                                    y * dt + self._states[i, 1].item(),
+                                )
+                            )
                             for (x, y) in pts
                         ]
                     ],
@@ -84,6 +81,17 @@ class ActionsVisualTool(tools.abstract_graphics.AbstractGraphics):
                 self.convert((pos, 1.0)),
                 color=(255, 255, 255),
             )
+
+    def _get_states(self) -> torch.Tensor:
+        states = []
+        dt = 1.0 / self.n_cells / 2.0
+        for i in range(self.n_cells):
+            x_mid = i / self.n_cells + dt
+            for j in range(self.n_cells):
+                y_mid = j / self.n_cells + dt
+                state = (x_mid, y_mid)
+                states.append(state)
+        return torch.tensor(states, dtype=torch.float32)
 
     def _get_unit_square_pie(self) -> list[tuple[Point, ...]]:
         polygons = []

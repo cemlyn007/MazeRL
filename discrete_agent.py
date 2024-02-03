@@ -36,6 +36,13 @@ class DiscreteAgent(abstract_agent.AbstractAgent):
             q_values = self.dqn.q_network(state_tensor).cpu()
         q_values.squeeze_(0)
         return q_values
+    
+    def get_batch_q_values(self, states: torch.Tensor) -> torch.Tensor:
+        with torch.no_grad():
+            states = states.to(self.dqn.device)
+            q_values = self.dqn.q_network(states).cpu()
+        q_values.squeeze_(0)
+        return q_values
 
     def get_greedy_discrete_action(self, state: np.ndarray) -> int:
         return self.get_q_values(state).argmax().item()

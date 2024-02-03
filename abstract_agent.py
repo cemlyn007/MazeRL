@@ -1,5 +1,5 @@
 import numpy as np
-
+import torch
 import abstract_dqns.dqn
 import environments.abstract_environment
 
@@ -26,4 +26,7 @@ class AbstractAgent:
         return -distance_to_goal
 
     def get_greedy_action(self, state: np.ndarray) -> np.ndarray:
+        raise NotImplementedError
+    
+    def get_batch_q_values(self, states: torch.Tensor) -> torch.Tensor:
         raise NotImplementedError

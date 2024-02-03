@@ -45,6 +45,12 @@ class ContinuousAgent(abstract_agent.AbstractAgent):
     def get_greedy_action(self, state: np.ndarray) -> np.ndarray:
         angle = self._get_greedy_angle(state)
         return self.angle_to_action(angle)
+    
+    def get_batch_q_values(self, states: torch.Tensor) -> torch.Tensor:
+        with torch.no_grad():
+            states = states.to(self.dqn.device)
+            q_values = self.dqn.get_greedy_continuous_angles(states).cpu()
+        return q_values
 
     def angle_to_action(self, angle: float) -> np.ndarray:
         action = self.stride * np.array([np.cos(angle),
