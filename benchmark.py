@@ -10,7 +10,7 @@ def benchmark(run_id: str):
     from discrete_dqns import double_dqn
     from environments import random_environment
     from replay_buffers import fast_prioritised_rb
-    from tools import greedy_policy_graphics
+    from tools import episode_rollout_tool
     from tools.actions_visual_tool import ActionsVisualTool
     import random
 
@@ -23,6 +23,7 @@ def benchmark(run_id: str):
     max_capacity = 5000
     batch_size = 32
     max_steps = 750
+    evaluate_max_steps = 201
     max_episodes = 750
     epsilon = 1.0
     delta = 0.0000008
@@ -44,15 +45,14 @@ def benchmark(run_id: str):
     environment = random_environment.RandomEnvironment(
         display=display_game, magnification=500
     )
+    environment.draw(environment.init_state)
     dqn = double_dqn.DiscreteDoubleDQN(hps, n_actions, device)
     agent = discrete_agent.DiscreteAgent(environment, dqn, n_actions, stride=0.02)
     rb = fast_prioritised_rb.FastPrioritisedExperienceReplayBuffer(
         max_capacity, batch_size, sampling_eps, agent
     )
 
-    policy_tool = greedy_policy_graphics.GreedyPolicyTool(
-        magnification=250, agent=agent, max_step_num=200
-    )
+    rollout_tool = episode_rollout_tool.EpisodeRolloutTool(environment.renderer.image)
     actions_tool = ActionsVisualTool(500, 15, n_actions, agent)
 
     hyperparameters = {
@@ -93,8 +93,8 @@ def benchmark(run_id: str):
 
     def log_greedy_policy(draw=True):
         if draw:
-            policy_tool.draw()
-        policy_img = cv2.cvtColor(policy_tool.image, cv2.COLOR_BGR2RGB)
+            rollout_tool.draw()
+        policy_img = cv2.cvtColor(rollout_tool.image, cv2.COLOR_BGR2RGB)
         policy_img = torch.from_numpy(policy_img)
         writer.add_image("greedy_policy", policy_img, episode_id, dataformats="HWC")
 
@@ -141,10 +141,12 @@ def benchmark(run_id: str):
 
         agent.dqn.eval()
         agent.reset()
+        states = [agent.state]
         has_reached_goal = False
-        for step_num in range(max_steps):
+        for _ in range(max_steps):
             transition, distance_to_goal = agent.step(0.0)
             state, action, reward, next_state = transition
+            states.append(agent.state)
             rb.store(state, action, reward, next_state)
 
             if distance_to_goal < 0.03:
@@ -162,10 +164,11 @@ def benchmark(run_id: str):
         writer.add_scalar("reached_goal_count", evaluate_reached_goal_count, episode_id)
         writer.add_scalar("epsilon", epsilon, episode_id)
 
+        rollout_tool.set_states(np.asarray(states[:evaluate_max_steps]))
         if display_tools:
-            policy_tool.draw()
+            rollout_tool.draw()
             log_greedy_policy(draw=False)
-            policy_tool.show()
+            rollout_tool.show()
             actions_tool.draw()
             log_greedy_actions_map(draw=False)
             actions_tool.show()

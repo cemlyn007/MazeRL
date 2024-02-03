@@ -9,24 +9,28 @@ import discrete_dqns.dqn
 import environments.basic_environment
 import tools.abstract_graphics
 
-Point = tuple[float, float]
-
 
 class ActionsVisualTool(tools.abstract_graphics.AbstractGraphics):
     YELLOW = (0, 255, 255)
     BLUE = (255, 0, 0)
 
-    def __init__(self, magnification: int, n_cells: int, n_actions: int,
-                 agent: discrete_agent.DiscreteAgent):
-        super().__init__('Actions Qs', magnification, agent)
+    def __init__(
+        self,
+        magnification: int,
+        n_cells: int,
+        n_actions: int,
+        agent: discrete_agent.DiscreteAgent,
+    ):
+        super().__init__("Actions Qs")
+        self.magnification = magnification
         self.n_cells = n_cells
         self.n_actions = n_actions
         self.agent = agent
-        self.image = np.zeros([int(self.magnification),
-                               int(self.magnification), 3],
-                              dtype=np.uint8)
-        self._unit_pts  = self._get_unit_square_pie()
+        self.image = np.zeros(
+            [int(self.magnification), int(self.magnification), 3], dtype=np.uint8
+        )
         self._states = self._get_states()
+        self._list_polygons = self._get_list_polygons()
 
     def draw(self) -> None:
         dt = 1.0 / self.n_cells / 2.0
@@ -40,30 +44,19 @@ class ActionsVisualTool(tools.abstract_graphics.AbstractGraphics):
         )
         batch_intensity = batch_intensity.numpy()
 
-        for i in range(self.n_cells * self.n_cells):
-            intensity = batch_intensity[i]
-            for k, pts in enumerate(self._unit_pts):
-                pts = np.array(
-                    [
-                        [
-                            self.convert(
-                                (
-                                    x * dt + self._states[i, 0].item(),
-                                    y * dt + self._states[i, 1].item(),
-                                )
-                            )
-                            for (x, y) in pts
-                        ]
-                    ],
-                    dtype=np.int32,
-                )
+        for state_index in range(self.n_cells * self.n_cells):
+            intensity = batch_intensity[state_index]
+
+
+            for action_index in range(self.n_actions):
+                pts = self._list_polygons[state_index][action_index]
                 cv2.fillPoly(
                     img=self.image,
                     pts=pts,
                     color=(
-                        int(255 - intensity[k]),
-                        int(intensity[k]),
-                        int(intensity[k]),
+                        int(255 - intensity[action_index]),
+                        int(intensity[action_index]),
+                        int(intensity[action_index]),
                     ),
                 )
 
@@ -71,14 +64,14 @@ class ActionsVisualTool(tools.abstract_graphics.AbstractGraphics):
             pos = i / self.n_cells
             cv2.line(
                 self.image,
-                self.convert((0.0, pos)),
-                self.convert((1.0, pos)),
+                self._convert(np.array((0.0, pos))),
+                self._convert(np.array((1.0, pos))),
                 color=(255, 255, 255),
             )
             cv2.line(
                 self.image,
-                self.convert((pos, 0.0)),
-                self.convert((pos, 1.0)),
+                self._convert(np.array((pos, 0.0))),
+                self._convert(np.array((pos, 1.0))),
                 color=(255, 255, 255),
             )
 
@@ -93,7 +86,7 @@ class ActionsVisualTool(tools.abstract_graphics.AbstractGraphics):
                 states.append(state)
         return torch.tensor(states, dtype=torch.float32)
 
-    def _get_unit_square_pie(self) -> list[tuple[Point, ...]]:
+    def _get_unit_square_pie(self) -> list[np.ndarray]:
         polygons = []
         centre = (0., 0.)
         for k in range(self.n_actions):
@@ -124,9 +117,27 @@ class ActionsVisualTool(tools.abstract_graphics.AbstractGraphics):
                 ), axis=0
             )
 
-            polygons.append(tuple(polygon))
+            polygons.append(polygon)
         return polygons
 
+    def _get_list_polygons(self) -> list[list[np.ndarray]]:
+        dt = 1.0 / self.n_cells / 2.0
+        list_polygons = []
+        unit_square_pie = unit_pts  = self._get_unit_square_pie()
+        for i in range(self.n_cells * self.n_cells):
+            polygons =  []
+            state = self._states[i].numpy()
+            for unit_pts in unit_square_pie:
+                pts = unit_pts * dt
+                pts += state
+                pts = self._convert(pts)
+                pts = np.expand_dims(pts, axis=0)
+                polygons.append(pts)
+            list_polygons.append(polygons)
+        return list_polygons
+
+    def _convert(self, pt: np.ndarray) -> np.ndarray:
+        return super()._convert(pt, self.magnification)
 
 def _main():
     env = environments.basic_environment.BasicEnvironment(False, 500)
