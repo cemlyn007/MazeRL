@@ -27,24 +27,45 @@ class ActionsVisualTool(tools.abstract_graphics.AbstractGraphics):
                               dtype=np.uint8)
         self._unit_pts = unit_pts = self._get_unit_square_pie()
 
-    def draw(self) -> None:
-        self.image.fill(0)
-        dt = 1. / self.n_cells / 2.
+    def _get_states(self):
+        dt = 1.0 / self.n_cells / 2.0
         for i in range(self.n_cells):
             x_mid = i / self.n_cells + dt
             for j in range(self.n_cells):
                 y_mid = j / self.n_cells + dt
                 state = np.array((x_mid, y_mid))
-                q_values = self.agent.get_q_values(state)
-                normalised = ((q_values - q_values.min())
-                              / (q_values.max() - q_values.min()) * 255.).round().tolist()
-                normalised = list(map(int, normalised))
-                for k, pts in enumerate(self._unit_pts):
-                    pts = np.array([[self.convert((x * dt + x_mid, y * dt + y_mid))
-                                     for (x, y) in pts]],
-                                   dtype=np.int32)
-                    cv2.fillPoly(img=self.image, pts=pts,
-                                 color=(255 - normalised[k], normalised[k], normalised[k]))
+                yield state
+
+    def draw(self) -> None:
+        dt = 1.0 / self.n_cells / 2.0
+
+        for state in self._get_states():
+            q_values = self.agent.get_q_values(state)
+            min_max_scaled_q_values = (q_values - q_values.min()) / (
+                q_values.max() - q_values.min()
+            )
+            intensity = (min_max_scaled_q_values * 255.0).round()
+            intensity = np.asarray(intensity, dtype=np.uint8)
+
+            for k, pts in enumerate(self._unit_pts):
+                pts = np.array(
+                    [
+                        [
+                            self.convert((x * dt + state[0], y * dt + state[1]))
+                            for (x, y) in pts
+                        ]
+                    ],
+                    dtype=np.int32,
+                )
+                cv2.fillPoly(
+                    img=self.image,
+                    pts=pts,
+                    color=(
+                        int(255 - intensity[k]),
+                        int(intensity[k]),
+                        int(intensity[k]),
+                    ),
+                )
 
         for i in range(self.n_cells):
             pos = i / self.n_cells
@@ -85,8 +106,11 @@ class ActionsVisualTool(tools.abstract_graphics.AbstractGraphics):
             inverse_cos_theta = np.where(abs_cos_theta > 0.0, 1 / abs_cos_theta, 1.0)
             inverse_sin_theta = np.where(abs_sin_theta > 0.0, 1 / abs_sin_theta, 1.0)
             rs = np.minimum(inverse_cos_theta, inverse_sin_theta)
+
             polygon = np.concatenate(
-                (np.array([centre]), rs * np.array([cos_theta, sin_theta])), axis=0
+                (np.array([centre]),
+                 (rs * np.array([cos_theta, sin_theta])).T
+                ), axis=0
             )
 
             polygons.append(tuple(polygon))
