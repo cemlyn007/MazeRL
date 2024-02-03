@@ -143,7 +143,7 @@ def benchmark(run_id: str):
         agent.reset()
         states = [agent.state]
         has_reached_goal = False
-        for _ in range(max_steps):
+        for _ in range(evaluate_max_steps):
             transition, distance_to_goal = agent.step(0.0)
             state, action, reward, next_state = transition
             states.append(agent.state)
@@ -164,7 +164,7 @@ def benchmark(run_id: str):
         writer.add_scalar("reached_goal_count", evaluate_reached_goal_count, episode_id)
         writer.add_scalar("epsilon", epsilon, episode_id)
 
-        rollout_tool.set_states(np.asarray(states[:evaluate_max_steps]))
+        rollout_tool.set_states(np.asarray(states))
         if display_tools:
             rollout_tool.draw()
             log_greedy_policy(draw=False)
