@@ -27,7 +27,6 @@ class ContinuousAgent(abstract_agent.AbstractAgent):
         reward = self.compute_reward(distance_to_goal)
         transition = (self.state, angle, reward, next_state)
         self.state = next_state
-        self.total_reward += reward
         return transition, distance_to_goal
 
     def _get_greedy_angle(self, state: np.ndarray) -> float:

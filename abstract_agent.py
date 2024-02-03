@@ -11,12 +11,10 @@ class AbstractAgent:
         self.environment = environment
         self.dqn = dqn
         self.state = None
-        self.total_reward = None
         self.reset()
 
     def reset(self) -> None:
         self.state = self.environment.reset()
-        self.total_reward = 0.0
 
     def step(self, epsilon: float = 0) -> tuple[tuple, float]:
         raise NotImplementedError

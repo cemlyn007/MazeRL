@@ -25,7 +25,6 @@ class DiscreteAgent(abstract_agent.AbstractAgent):
         reward = self.compute_reward(distance_to_goal)
         transition = (self.state, discrete_action, reward, next_state)
         self.state = next_state
-        self.total_reward += reward
         return transition, distance_to_goal
 
     def get_q_values(self, state: np.ndarray) -> torch.Tensor:
