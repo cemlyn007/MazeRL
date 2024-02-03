@@ -25,21 +25,24 @@ class ActionsVisualTool(tools.abstract_graphics.AbstractGraphics):
         self.image = np.zeros([int(self.magnification),
                                int(self.magnification), 3],
                               dtype=np.uint8)
-        self._unit_pts = unit_pts = self._get_unit_square_pie()
+        self._unit_pts  = self._get_unit_square_pie()
+        self._states = self._get_states()
 
-    def _get_states(self):
+    def _get_states(self) -> np.ndarray:
+        states = []
         dt = 1.0 / self.n_cells / 2.0
         for i in range(self.n_cells):
             x_mid = i / self.n_cells + dt
             for j in range(self.n_cells):
                 y_mid = j / self.n_cells + dt
-                state = np.array((x_mid, y_mid))
-                yield state
+                state = (x_mid, y_mid)
+                states.append(state)
+        return np.array(states, dtype=np.float64)
 
     def draw(self) -> None:
         dt = 1.0 / self.n_cells / 2.0
 
-        for state in self._get_states():
+        for state in self._states:
             q_values = self.agent.get_q_values(state)
             min_max_scaled_q_values = (q_values - q_values.min()) / (
                 q_values.max() - q_values.min()
