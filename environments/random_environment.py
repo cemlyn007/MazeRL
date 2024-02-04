@@ -1,4 +1,3 @@
-import cv2
 import numpy as np
 
 from environments import abstract_environment, utils, renderer
