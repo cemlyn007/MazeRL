@@ -10,6 +10,7 @@ class AbstractDQN(torch.nn.Module):
         self.q_network = None
         self.optimizer = None
         self.loss_f = torch.nn.L1Loss(reduction='none')
+        self.train_q_network = torch.compile(self.train_q_network)
 
     @staticmethod
     def choose_device(device) -> torch.device:
