@@ -14,6 +14,7 @@ class DiscreteAgent(abstract_agent.AbstractAgent):
         super().__init__(environment, dqn)
         self._n_actions = n_actions
         self._actions = self._create_actions(n_actions, stride)
+        self.get_q_values = torch.compile(self.get_q_values)
 
     def step(self, epsilon: float = 0) -> tuple[tuple, float]:
         if epsilon <= np.random.uniform():
