@@ -7,12 +7,13 @@ import torch
 from tqdm import tqdm
 
 import continuous_agent
+import continuous_dqns.dqn
 import continuous_dqns.double_dqn
 import continuous_dqns.dqn_with_target_network
 import environments.random_environment
 import helpers
 import tensorboard_writer
-import tools.greedy_policy_graphics
+import tools.episode_rollout_tool
 from replay_buffers import fast_prioritised_rb
 
 if __name__ == '__main__':
@@ -32,6 +33,7 @@ if __name__ == '__main__':
     tau = 100  # target network episode update rate
 
     hps = helpers.Hyperparameters(gamma=.9, lr=1e-4)
+    evaluate_reached_goal_count = 0
 
     if torch.cuda.is_available():
         print('Using GPU')
@@ -42,15 +44,17 @@ if __name__ == '__main__':
     display_game = False
     display_tools = False
 
-    environment = environments.random_environment.RandomEnvironment(display=display_game,
-                                                                    magnification=500)
-    dqn = continuous_dqns.double_dqn.ContinuousDoubleDQN(hps, device)
+    environment = environments.random_environment.RandomEnvironment(
+        display=display_game, magnification=500
+    )
+    environment.draw(environment.init_state)
+    # dqn = continuous_dqns.double_dqn.ContinuousDoubleDQN(hps, device)
+    dqn = continuous_dqns.dqn.ContinuousDQN(hps, device)
     agent = continuous_agent.ContinuousAgent(environment, dqn, stride=0.02)
     rb = fast_prioritised_rb.FastPrioritisedExperienceReplayBuffer(max_capacity, batch_size,
-                                                                   sampling_eps, agent)
+                                                                   sampling_eps, agent, environment.init_state.shape)
 
-    policy_tool = tools.greedy_policy_graphics.GreedyPolicyTool(magnification=250, agent=agent,
-                                                                max_step_num=200)
+    rollout_tool = tools.episode_rollout_tool.EpisodeRolloutTool(environment.renderer.image)
 
     hyperparameters = {
         'gamma': hps.gamma,
@@ -92,8 +96,8 @@ if __name__ == '__main__':
 
     def log_greedy_policy(draw=True):
         if draw:
-            policy_tool.draw()
-        policy_img = cv2.cvtColor(policy_tool.image, cv2.COLOR_BGR2RGB)
+            rollout_tool.draw()
+        policy_img = cv2.cvtColor(rollout_tool.image, cv2.COLOR_BGR2RGB)
         policy_img = torch.from_numpy(policy_img)
         writer.add_image('greedy_policy', policy_img, episode_id,
                          dataformats='HWC')
@@ -128,18 +132,21 @@ if __name__ == '__main__':
                 epsilon = max(epsilon, minimum_epsilon)
                 episodes_iter.set_description(f'Epsilon: {epsilon:.3f} ')
 
-            if dqn.HAS_TARGET_NETWORK and (step_id % tau == 0):
+            if dqn.has_target_network and (step_id % tau == 0):
                 dqn.update_target_network()
             step_id += 1
 
         agent.dqn.eval()
         agent.reset()
+        states = [agent.state]
         for step_num in range(max_steps):
             transition, distance_to_goal = agent.step(0.)
             state, action, reward, next_state = transition
+            states.append(agent.state)
             rb.store(state, action, reward, next_state)
 
             if distance_to_goal < 0.03:
+                evaluate_reached_goal_count += 1
                 has_reached_goal = True
                 break
 
@@ -150,24 +157,28 @@ if __name__ == '__main__':
         log('loss', step_losses, episode_id)
         writer.add_hparams(hyperparameters, metrics(rewards))
         writer.add_scalar('reached_goal', has_reached_goal, episode_id)
+        writer.add_scalar("reached_goal_count", evaluate_reached_goal_count, episode_id)
         writer.add_scalar('epsilon', epsilon, episode_id)
 
+        rollout_tool.set_states(np.asarray(states))
         if display_tools:
-            policy_tool.draw()
+            rollout_tool.draw()
             log_greedy_policy(draw=False)
-            policy_tool.show()
+            rollout_tool.show()
         else:
             log_greedy_policy()
 
         torch.save(dqn.q_network.state_dict(),
                    os.path.join(model_path, f'q_networks_state_dict-{episode_id}.pt'))
-        torch.save(dqn.target_network.state_dict(),
-                   os.path.join(model_path, f'target_networks_state_dict-{episode_id}.pt'))
+        if dqn.has_target_network:
+            torch.save(dqn.target_network.state_dict(),
+                    os.path.join(model_path, f'target_networks_state_dict-{episode_id}.pt'))
 
-    policy_tool.draw()
-    policy_tool.save_image('greedy_policy_reward.png')
+    rollout_tool.draw()
+    rollout_tool.save_image('greedy_policy_reward.png')
 
     torch.save(dqn.q_network.state_dict(),
                os.path.join(model_path, 'q_networks_state_dict.pt'))
-    torch.save(dqn.target_network.state_dict(),
-               os.path.join(model_path, 'target_networks_state_dict.pt'))
+    if dqn.has_target_network:
+        torch.save(dqn.target_network.state_dict(),
+                os.path.join(model_path, 'target_networks_state_dict.pt'))

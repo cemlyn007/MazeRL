@@ -6,14 +6,15 @@ from abstract_dqns import dqn
 from abstract_dqns import stub_network
 
 TORCH_PI = torch.tensor(np.pi)
-TORCH_I = torch.tensor(np.complex(0, 1))
+TORCH_I = torch.tensor(complex(0, 1))
 
 
-class ContinuousDQN(dqn.AbstractDQN):
-
-    def __init__(self, hps: helpers.Hyperparameters, device: torch.device = None):
-        super().__init__(device)
+class ContinuousDQN(dqn.AbstractDQN, torch.nn.Module):
+    def __init__(self, hps: helpers.Hyperparameters, device: torch.device):
+        super().__init__()
+        self.device = device
         self.hps = hps
+        self.loss_f = torch.nn.L1Loss(reduction='none')
         self.q_network = stub_network.Network(2 + 1, 1).to(self.device)
         self.optimizer = torch.optim.SGD(self.q_network.parameters(),
                                          lr=hps.lr)
@@ -21,9 +22,20 @@ class ContinuousDQN(dqn.AbstractDQN):
         self.cross_entropy_m = 64
         self.cross_entropy_n = 8
 
+    @property
+    def has_target_network(self) -> bool:
+        return False
+
+    def train_q_network(self, transition: torch.Tensor) -> torch.Tensor:
+        self.optimizer.zero_grad()
+        losses = self.compute_losses(transition)
+        losses.sum().backward()
+        self.optimizer.step()
+        return losses.detach().cpu()
+
     @staticmethod
-    def unpack_transitions(transitions: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor,
-                                                               torch.Tensor, torch.Tensor]:
+    def _unpack_transitions(transitions: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor,
+                                                                torch.Tensor, torch.Tensor]:
         states = transitions[:, :2]
         actions = transitions[:, 2]
         rewards = transitions[:, 3]
@@ -31,7 +43,7 @@ class ContinuousDQN(dqn.AbstractDQN):
         return states, actions, rewards, next_states
 
     def compute_losses(self, transitions: torch.Tensor) -> torch.Tensor:
-        states, actions, rewards, next_states = self.unpack_transitions(transitions)
+        states, actions, rewards, next_states = self._unpack_transitions(transitions)
         inputs = self.make_network_inputs(states, actions)
         predictions = self.q_network(inputs).squeeze(-1)
         _, max_q_values = self.cross_entropy_network_actions_selection(states, self.q_network)

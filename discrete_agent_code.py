@@ -17,8 +17,9 @@ from tools.actions_visual_tool import ActionsVisualTool
 import random
 
 
+if __name__ == '__main__':
     random_state = 816673
-
+    torch.random.manual_seed(random_state)
     random.seed(random_state)
     np.random.seed(random_state)
     torch.manual_seed(random_state)
@@ -34,22 +35,20 @@ import random
     sampling_eps = 1e-7
     tau = 100  # target network episode update rate
     hps = helpers.Hyperparameters(gamma=0.9, lr=1.e-3)
+    evaluate_reached_goal_count = 0
 
-    if torch.cuda.is_available():
-        print('Using GPU')
-        device = torch.device('cuda')
-    else:
-        print('Using CPU')
-        device = torch.device('cpu')
+    device = torch.device('cpu')
+
     display_game = False
     display_tools = False
 
     environment = random_environment.RandomEnvironment(display=display_game,
                                                        magnification=500)
+    environment.draw(environment.init_state)
     dqn = double_dqn.DiscreteDoubleDQN(hps, n_actions, device)
     agent = discrete_agent.DiscreteAgent(environment, dqn, n_actions, stride=0.02)
     rb = fast_prioritised_rb.FastPrioritisedExperienceReplayBuffer(max_capacity, batch_size,
-                                                                   sampling_eps, agent)
+                                                                   sampling_eps, agent, environment.init_state.shape)
 
     rollout_tool = episode_rollout_tool.EpisodeRolloutTool(environment.renderer.image)
     actions_tool = ActionsVisualTool(500, 15, n_actions, agent)
@@ -136,7 +135,7 @@ import random
                 epsilon = max(epsilon, minimum_epsilon)
                 episodes_iter.set_description(f'Epsilon: {epsilon:.3f}')
 
-            if dqn.HAS_TARGET_NETWORK and (step_id % tau == 0):
+            if dqn.has_target_network and (step_id % tau == 0):
                 dqn.update_target_network()
             step_id += 1
 
@@ -154,6 +153,7 @@ import random
             rb.store(state, action, reward, next_state)
 
             if distance_to_goal < 0.03:
+                evaluate_reached_goal_count += 1
                 has_reached_goal = True
                 break
 
@@ -164,6 +164,7 @@ import random
         log('loss', step_losses, episode_id)
         writer.add_hparams(hyperparameters, metrics(rewards))
         writer.add_scalar('reached_goal', has_reached_goal, episode_id)
+        writer.add_scalar("reached_goal_count", evaluate_reached_goal_count, episode_id)
         writer.add_scalar('epsilon', epsilon, episode_id)
 
         rollout_tool.set_states(np.asarray(states))
@@ -180,8 +181,9 @@ import random
 
         torch.save(dqn.q_network.state_dict(),
                    os.path.join(model_path, f'q_networks_state_dict-{episode_id}.pt'))
-        torch.save(dqn.target_network.state_dict(),
-                   os.path.join(model_path, f'target_networks_state_dict-{episode_id}.pt'))
+        if dqn.has_target_network:
+            torch.save(dqn.target_network.state_dict(),
+                    os.path.join(model_path, f'target_networks_state_dict-{episode_id}.pt'))
 
     actions_tool.draw()
     actions_tool.save_image('actions_visualisation.png')
@@ -190,5 +192,6 @@ import random
 
     torch.save(dqn.q_network.state_dict(),
                os.path.join(model_path, 'q_networks_state_dict.pt'))
-    torch.save(dqn.target_network.state_dict(),
-               os.path.join(model_path, 'target_networks_state_dict.pt'))
+    if dqn.has_target_network:
+        torch.save(dqn.target_network.state_dict(),
+                os.path.join(model_path, 'target_networks_state_dict.pt'))

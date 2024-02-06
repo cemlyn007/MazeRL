@@ -10,11 +10,13 @@ import helpers
 class DiscreteAgent(abstract_agent.AbstractAgent):
     def __init__(self, environment: environments.abstract_environment.AbstractEnvironment,
                  dqn: discrete_dqns.dqn.DiscreteDQN, n_actions: int, stride: float):
-        super().__init__(environment, dqn)
+        super().__init__(environment)
+        self.dqn = dqn
         self._n_actions = n_actions
         self._actions = self._create_actions(n_actions, stride)
         self.get_batch_q_values = torch.compile(self.get_batch_q_values, 
                                                 disable=self.dqn.device is torch.device("cpu"))
+        self.dqn.train_q_network = torch.compile(self.dqn.train_q_network)
 
     def step(self, epsilon: float = 0) -> tuple[tuple, float]:
         if epsilon <= np.random.uniform():

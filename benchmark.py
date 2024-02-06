@@ -1,4 +1,6 @@
 def benchmark(run_id: str):
+    import warnings
+    warnings.filterwarnings("error")
     import cv2
     import numpy as np
     import torch
@@ -123,7 +125,7 @@ def benchmark(run_id: str):
                 epsilon -= delta
                 epsilon = max(epsilon, minimum_epsilon)
 
-            if dqn.HAS_TARGET_NETWORK and (step_id % tau == 0):
+            if dqn.has_target_network and (step_id % tau == 0):
                 dqn.update_target_network()
             step_id += 1
 
@@ -174,6 +176,8 @@ if __name__ == "__main__":
     import multiprocessing
     import time
     import sys
+
+    multiprocessing.set_start_method('spawn')
 
     for i in range(int(sys.argv[2])):
         target = functools.partial(benchmark, f"{sys.argv[1]}_{i}")

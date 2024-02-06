@@ -8,11 +8,12 @@ import helpers
 
 
 class ContinuousAgent(abstract_agent.AbstractAgent):
-
     def __init__(self, environment: environments.abstract_environment.AbstractEnvironment,
                  dqn: continuous_dqns.dqn.ContinuousDQN, stride: float):
-        super().__init__(environment, dqn)
+        super().__init__(environment)
+        self.dqn = dqn
         self.stride = stride
+        self.dqn.train_q_network = torch.compile(self.dqn.train_q_network)
 
     def sample_angle(self, epsilon: float) -> float:
         if epsilon <= np.random.uniform():

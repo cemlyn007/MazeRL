@@ -1,11 +1,9 @@
 import torch
 
-from abstract_dqns import double_dqn
 from continuous_dqns import dqn_with_target_network
 
 
-class ContinuousDoubleDQN(dqn_with_target_network.ContinuousDQNWithTargetNetwork,
-                          double_dqn.AbstractDoubleDQN):
+class ContinuousDoubleDQN(dqn_with_target_network.ContinuousDQNWithTargetNetwork):
     def compute_target_q_values(self, rewards: torch.Tensor,
                                 next_states: torch.Tensor) -> torch.Tensor:
         actions, _ = self.cross_entropy_network_actions_selection(next_states,

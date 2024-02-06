@@ -1,15 +1,12 @@
 import numpy as np
 import torch
-import abstract_dqns.dqn
 import environments.abstract_environment
 
 
 class AbstractAgent:
 
-    def __init__(self, environment: environments.abstract_environment.AbstractEnvironment,
-                 dqn: abstract_dqns.dqn.AbstractDQN):
+    def __init__(self, environment: environments.abstract_environment.AbstractEnvironment):
         self.environment = environment
-        self.dqn = dqn
         self.state = None
         self.reset()
 
