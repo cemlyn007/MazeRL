@@ -2,7 +2,6 @@ def benchmark(run_id: str):
     import cv2
     import numpy as np
     import torch
-    from tqdm import tqdm
 
     import discrete_agent
     import helpers
@@ -33,12 +32,7 @@ def benchmark(run_id: str):
     hps = helpers.Hyperparameters(gamma=0.9, lr=5.0e-4)
     evaluate_reached_goal_count = 0
 
-    if torch.cuda.is_available():
-        print("Using GPU")
-        device = torch.device("cuda")
-    else:
-        print("Using CPU")
-        device = torch.device("cpu")
+    device = torch.device("cpu")
     display_game = False
     display_tools = False
 
@@ -108,8 +102,7 @@ def benchmark(run_id: str):
         )
 
     step_id = 0
-    episodes_iter = tqdm(range(max_episodes))
-    for episode_id in episodes_iter:
+    for episode_id in range(max_episodes):
         episode_loss_list = []
         episode_reward_list = []
         agent.reset()
@@ -128,9 +121,6 @@ def benchmark(run_id: str):
             if epsilon > minimum_epsilon:
                 epsilon -= delta
                 epsilon = max(epsilon, minimum_epsilon)
-                episodes_iter.set_description(
-                    f"Epsilon: {epsilon:.3f} | Goal Count: {evaluate_reached_goal_count}"
-                )
 
             if dqn.HAS_TARGET_NETWORK and (step_id % tau == 0):
                 dqn.update_target_network()
