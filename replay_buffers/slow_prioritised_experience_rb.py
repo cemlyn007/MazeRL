@@ -32,10 +32,6 @@ class SlowPrioritisedExperienceReplayBuffer(replay_buffer.ReplayBuffer):
         weight = self.weight(entry)
         self.weights.append(weight)
 
-    def sample(self) -> torch.Tensor:
-        weights = self.get_sampling_weights()
-        return random.choices(self.container, weights)[0]
-
     def get_sampling_weights(self) -> np.ndarray:
         if self.alpha == 1:
             return np.array(self.weights)
@@ -48,6 +44,3 @@ class SlowPrioritisedExperienceReplayBuffer(replay_buffer.ReplayBuffer):
         weights = self.get_sampling_weights()
         transitions = random.choices(self.container, weights, k=self.batch_size)
         return torch.stack(transitions)
-
-    def __add__(self, other):
-        raise NotImplementedError
