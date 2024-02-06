@@ -3,9 +3,10 @@ import random
 
 import numpy as np
 import torch
+from replay_buffers import abstract_replay_buffer
 
 
-class ReplayBuffer:
+class ReplayBuffer(abstract_replay_buffer.ReplayBuffer):
 
     def __init__(self, max_capacity: int, batch_size: int):
         self.batch_size = batch_size

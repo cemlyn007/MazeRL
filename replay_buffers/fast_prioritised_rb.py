@@ -1,22 +1,23 @@
 import random
-from collections import deque
+import collections
 
 import torch
 from numpy import ndarray
 
 import abstract_agent
-from replay_buffers import replay_buffer
+from replay_buffers import abstract_replay_buffer
 
 
-class FastPrioritisedExperienceReplayBuffer(replay_buffer.ReplayBuffer):
+class FastPrioritisedExperienceReplayBuffer(abstract_replay_buffer.ReplayBuffer):
 
     def __init__(self, max_capacity: int, batch_size: int, eps: float,
                  agent: abstract_agent.AbstractAgent):
-        super().__init__(max_capacity, batch_size)
+        self.batch_size = batch_size
+        self.container = collections.deque(maxlen=max_capacity)
         self.eps = eps
         self.agent = agent
         self.dqn = agent.dqn
-        self.weights = deque(maxlen=max_capacity)
+        self.weights = collections.deque(maxlen=max_capacity)
         self._indices = None
 
     def store(self, state: ndarray, action: int, reward: float,

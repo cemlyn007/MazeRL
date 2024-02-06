@@ -5,14 +5,15 @@ import numpy as np
 import torch
 
 import abstract_agent
-from replay_buffers import replay_buffer
+from replay_buffers import abstract_replay_buffer
 
 
-class SlowPrioritisedExperienceReplayBuffer(replay_buffer.ReplayBuffer):
+class SlowPrioritisedExperienceReplayBuffer(abstract_replay_buffer.ReplayBuffer):
 
     def __init__(self, max_capacity: int, batch_size: int, eps: float,
                  alpha: float, agent: abstract_agent.AbstractAgent):
-        super().__init__(max_capacity, batch_size)
+        self.batch_size = batch_size
+        self.container = collections.deque(maxlen=max_capacity)
         self.weights = collections.deque(maxlen=max_capacity)
         self.eps = eps
         self.alpha = alpha
