@@ -14,6 +14,7 @@ def benchmark(run_id: str):
     import random
 
     random_state = 816673
+    torch.random.manual_seed(random_state)
     random.seed(random_state)
     np.random.seed(random_state)
     torch.manual_seed(random_state)
@@ -43,7 +44,7 @@ def benchmark(run_id: str):
     dqn = double_dqn.DiscreteDoubleDQN(hps, n_actions, device)
     agent = discrete_agent.DiscreteAgent(environment, dqn, n_actions, stride=0.02)
     rb = fast_prioritised_rb.FastPrioritisedExperienceReplayBuffer(
-        max_capacity, batch_size, sampling_eps, agent
+        max_capacity, batch_size, sampling_eps, agent, environment.init_state.shape
     )
 
     rollout_tool = episode_rollout_tool.EpisodeRolloutTool(environment.renderer.image)

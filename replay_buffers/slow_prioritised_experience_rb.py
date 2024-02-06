@@ -45,3 +45,6 @@ class SlowPrioritisedExperienceReplayBuffer(abstract_replay_buffer.ReplayBuffer)
         weights = self.get_sampling_weights()
         transitions = random.choices(self.container, weights, k=self.batch_size)
         return torch.stack(transitions)
+
+    def __len__(self):
+        return len(self.container)
