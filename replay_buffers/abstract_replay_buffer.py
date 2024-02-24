@@ -10,7 +10,7 @@ class ReplayBuffer(abc.ABC):
 
     @abc.abstractmethod
     def store(self, state: np.ndarray, action: int, reward: float,
-              new_state: np.ndarray):
+              done: bool, new_state: np.ndarray):
         pass
 
     @abc.abstractmethod

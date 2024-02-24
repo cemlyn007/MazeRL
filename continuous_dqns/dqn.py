@@ -35,19 +35,21 @@ class ContinuousDQN(dqn.AbstractDQN, torch.nn.Module):
 
     @staticmethod
     def _unpack_transitions(transitions: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor,
+                                                                torch.Tensor,
                                                                 torch.Tensor, torch.Tensor]:
         states = transitions[:, :2]
         actions = transitions[:, 2]
         rewards = transitions[:, 3]
-        next_states = transitions[:, 4:]
-        return states, actions, rewards, next_states
+        dones = transitions[:, 4]
+        next_states = transitions[:, 5:]
+        return states, actions, rewards, dones, next_states
 
     def compute_losses(self, transitions: torch.Tensor) -> torch.Tensor:
-        states, actions, rewards, next_states = self._unpack_transitions(transitions)
+        states, actions, rewards, dones, next_states = self._unpack_transitions(transitions)
         inputs = self.make_network_inputs(states, actions)
         predictions = self.q_network(inputs).squeeze(-1)
         _, max_q_values = self.cross_entropy_network_actions_selection(states, self.q_network)
-        targets = rewards + self.hps.gamma * max_q_values
+        targets = rewards + self.hps.gamma * max_q_values * (1 - dones)
         loss = self.loss_f(predictions, targets)
         return loss
 

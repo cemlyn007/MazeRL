@@ -4,3 +4,6 @@ tqdm
 tensorboard
 numpy
 pillow
+jax
+flax
+optax

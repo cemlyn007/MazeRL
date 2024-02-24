@@ -17,7 +17,6 @@ class SlowPrioritisedExperienceReplayBuffer(abstract_replay_buffer.ReplayBuffer)
         self.weights = collections.deque(maxlen=max_capacity)
         self.eps = eps
         self.alpha = alpha
-        self.agent = agent
         self.dqn = agent.dqn
 
     def weight(self, entry: torch.Tensor) -> float:
@@ -26,9 +25,9 @@ class SlowPrioritisedExperienceReplayBuffer(abstract_replay_buffer.ReplayBuffer)
             loss = self.dqn.compute_losses(entry).item()
         return abs(loss) + self.eps
 
-    def store(self, state: np.ndarray, action: int, reward: float,
+    def store(self, state: np.ndarray, action: int, reward: float, done: bool,
               new_state: np.ndarray) -> None:
-        entry = torch.tensor((*state, action, reward, *new_state))
+        entry = torch.tensor((*state, action, reward, done, *new_state))
         self.container.append(entry)
         weight = self.weight(entry)
         self.weights.append(weight)

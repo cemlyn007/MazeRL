@@ -26,20 +26,19 @@ class DiscreteDQNWithTargetNetwork(dqn.DiscreteDQN):
         return torch.tensor(np.array(losses))
 
     def compute_losses(self, params, target_params, transitions: jax.Array) -> tuple[jax.Array, jax.Array]:
-        states, actions, rewards, next_states = self._unpack_transitions(
+        states, actions, rewards, dones, next_states = self._unpack_transitions(
             transitions)
         q_values = self.q_network.apply(params, states)
         selected_q_values = jnp.take_along_axis(q_values, actions, axis=1).flatten()
         next_q_values = self.q_network.apply(target_params, next_states)
         next_q_values = jax.lax.stop_gradient(next_q_values)
         max_q_values = jnp.max(next_q_values, axis=1)
-        targets = rewards + self.hps.gamma * max_q_values
+        targets = rewards + self.hps.gamma * max_q_values * (1 - dones)
         loss = jnp.abs(selected_q_values - targets)
         return loss.sum(), loss
     
     def _jax_update(self, params, target_params, optimizer_state, transition: jax.Array) -> tuple[any, any, jax.Array]:
-        gradient, losses = jax.grad(
-            self.compute_losses, has_aux=True)(params, target_params, transition)
+        gradient, losses = jax.grad(self.compute_losses, has_aux=True)(params, target_params, transition)
         update, new_optimizer_state = self.optimizer.update(
             gradient, params, optimizer_state)
         new_params = optax.apply_updates(params, update)

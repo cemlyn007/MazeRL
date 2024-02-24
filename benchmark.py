@@ -46,7 +46,7 @@ def benchmark(run_id: str):
     dqn = double_dqn.DiscreteDoubleDQN(hps, n_actions, device)
     agent = discrete_agent.DiscreteAgent(environment, dqn, n_actions, stride=0.02)
     rb = fast_prioritised_rb.FastPrioritisedExperienceReplayBuffer(
-        max_capacity, batch_size, sampling_eps, agent, environment.init_state.shape
+        max_capacity, batch_size, sampling_eps, environment.init_state.shape
     )
 
     rollout_tool = episode_rollout_tool.EpisodeRolloutTool(environment.renderer.image)
@@ -112,8 +112,9 @@ def benchmark(run_id: str):
         agent.dqn.train()
         for step_num in range(max_steps):
             transition, distance_to_goal = agent.step(epsilon)
+            done = distance_to_goal < 0.03
             state, action, reward, next_state = transition
-            rb.store(state, action, reward, next_state)
+            rb.store(state, action, reward, done, next_state)
             episode_reward_list.append(reward)
 
             if len(rb) > batch_size:
@@ -129,7 +130,7 @@ def benchmark(run_id: str):
                 dqn.update_target_network()
             step_id += 1
 
-            if distance_to_goal < 0.03:
+            if done:
                 break
 
         agent.dqn.eval()
@@ -139,10 +140,11 @@ def benchmark(run_id: str):
         for _ in range(evaluate_max_steps):
             transition, distance_to_goal = agent.step(0.0)
             state, action, reward, next_state = transition
+            done = distance_to_goal < 0.03
             states.append(agent.state)
-            rb.store(state, action, reward, next_state)
+            rb.store(state, action, reward, done, next_state)
 
-            if distance_to_goal < 0.03:
+            if done:
                 evaluate_reached_goal_count += 1
                 has_reached_goal = True
                 break

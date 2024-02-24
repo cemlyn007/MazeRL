@@ -26,18 +26,20 @@ class DiscreteDQN(dqn.AbstractDQN, torch.nn.Module):
         return losses.detach().cpu()
 
     def compute_losses(self, transitions: torch.Tensor) -> torch.Tensor:
-        states, actions, rewards, next_states = self._unpack_transitions(transitions)
+        states, actions, rewards, dones, next_states = self._unpack_transitions(transitions)
         predictions = self.q_network(states).gather(1, actions).flatten()
         max_q_values = self.q_network(next_states).max(1).values
-        targets = rewards + self.hps.gamma * max_q_values
+        targets = rewards + self.hps.gamma * max_q_values * (1 - dones)
         loss = self.loss_f(predictions, targets)
         return loss
 
     @staticmethod
     def _unpack_transitions(transitions: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor,
+                                                                torch.Tensor,
                                                                 torch.Tensor, torch.Tensor]:
         states = transitions[:, :2]
         actions = transitions[:, 2].long().unsqueeze(-1)
         rewards = transitions[:, 3]
-        next_states = transitions[:, 4:]
-        return states, actions, rewards, next_states
+        dones = transitions[:, 4]
+        next_states = transitions[:, 5:]
+        return states, actions, rewards, dones, next_states

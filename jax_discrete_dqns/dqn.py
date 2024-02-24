@@ -37,31 +37,30 @@ class DiscreteDQN(dqn.AbstractDQN):
         return torch.tensor(losses)
     
     def _jax_update(self, params, optimizer_state, transition: jax.Array) -> tuple[any, any, jax.Array]:
-        gradient, losses = jax.grad(
-            self.compute_losses, has_aux=True)(params, transition)
+        gradient, losses = jax.grad(self.compute_losses, has_aux=True)(params, transition)
         update, new_optimizer_state = self.optimizer.update(
             gradient, params, optimizer_state)
         new_params = optax.apply_updates(params, update)
         return new_params, new_optimizer_state, losses
 
     def compute_losses(self, params, transitions: jax.Array) -> tuple[jax.Array, jax.Array]:
-        states, actions, rewards, next_states = self._unpack_transitions(
-            transitions)
+        states, actions, rewards, dones, next_states = self._unpack_transitions(transitions)
         q_values = self.q_network.apply(params, states)
-        selected_q_values = jnp.take_along_axis(
-            q_values, actions, axis=1).flatten()
+        selected_q_values = jnp.take_along_axis(q_values, actions, axis=1).flatten()
         next_q_values = self.q_network.apply(params, next_states)
         max_q_values = jnp.max(next_q_values, axis=1)
-        targets = rewards + self.hps.gamma * max_q_values
+        targets = rewards + self.hps.gamma * max_q_values * (1 - dones)
         loss = jnp.abs(selected_q_values - targets)
         return loss.sum(), loss
 
     @staticmethod
     def _unpack_transitions(transitions: jax.Array) -> tuple[jax.Array, jax.Array,
+                                                             jax.Array,
                                                              jax.Array, jax.Array]:
         states = transitions[:, :2]
         actions = transitions[:, 2].astype(jnp.int32)
         actions = jnp.expand_dims(actions, axis=-1)
         rewards = transitions[:, 3]
-        next_states = transitions[:, 4:]
-        return states, actions, rewards, next_states
+        dones = transitions[:, 4]
+        next_states = transitions[:, 5:]
+        return states, actions, rewards, dones, next_states

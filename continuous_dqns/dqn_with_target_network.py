@@ -22,7 +22,7 @@ class ContinuousDQNWithTargetNetwork(dqn.ContinuousDQN):
         return True
 
     def compute_losses(self, transitions: torch.Tensor) -> torch.Tensor:
-        states, actions, rewards, next_states = self._unpack_transitions(transitions)
+        states, actions, rewards, dones, next_states = self._unpack_transitions(transitions)
         inputs = self.make_network_inputs(states, actions)
         predictions = self.q_network(inputs)
         predictions.squeeze_(1)
