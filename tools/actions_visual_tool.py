@@ -19,7 +19,7 @@ class ActionsVisualTool(tools.abstract_graphics.AbstractGraphics):
         magnification: int,
         n_cells: int,
         n_actions: int,
-        agent: discrete_agent.DiscreteAgent,
+        agent: discrete_agent.abstract_agent.AbstractAgent,
     ):
         super().__init__("Actions Qs")
         self.magnification = magnification
@@ -33,21 +33,14 @@ class ActionsVisualTool(tools.abstract_graphics.AbstractGraphics):
         self._list_polygons = self._get_list_polygons()
 
     def draw(self) -> None:
-        dt = 1.0 / self.n_cells / 2.0
-
         batch_q_values = self.agent.get_batch_q_values(self._states)
-        batch_min_max_scaled_q_values = (batch_q_values - batch_q_values.min(dim=1, keepdim=True).values) / (
-            batch_q_values.max(dim=1, keepdim=True).values - batch_q_values.min(dim=1, keepdim=True).values
-        )
-        batch_intensity = (
-            (batch_min_max_scaled_q_values * 255.0).round().to(torch.uint8)
-        )
-        batch_intensity = batch_intensity.numpy()
-
+        batch_intensity = batch_q_values - batch_q_values.min(axis=1, keepdims=True)
+        batch_intensity /= (batch_q_values.max(axis=1, keepdims=True) - batch_q_values.min(axis=1, keepdims=True))
+        batch_intensity *= 255.0
+        np.round(batch_intensity, out=batch_intensity)
+        batch_intensity = np.round(batch_intensity).astype(np.uint8)
         for state_index in range(self.n_cells * self.n_cells):
             intensity = batch_intensity[state_index]
-
-
             for action_index in range(self.n_actions):
                 pts = self._list_polygons[state_index][action_index]
                 cv2.fillPoly(
@@ -75,7 +68,7 @@ class ActionsVisualTool(tools.abstract_graphics.AbstractGraphics):
                 color=(255, 255, 255),
             )
 
-    def _get_states(self) -> torch.Tensor:
+    def _get_states(self) -> np.ndarray:
         states = []
         dt = 1.0 / self.n_cells / 2.0
         for i in range(self.n_cells):
@@ -84,7 +77,7 @@ class ActionsVisualTool(tools.abstract_graphics.AbstractGraphics):
                 y_mid = j / self.n_cells + dt
                 state = (x_mid, y_mid)
                 states.append(state)
-        return torch.tensor(states, dtype=torch.float32)
+        return np.array(states, dtype=np.float32)
 
     def _get_unit_square_pie(self) -> list[np.ndarray]:
         polygons = []
@@ -126,7 +119,7 @@ class ActionsVisualTool(tools.abstract_graphics.AbstractGraphics):
         unit_square_pie = unit_pts  = self._get_unit_square_pie()
         for i in range(self.n_cells * self.n_cells):
             polygons =  []
-            state = self._states[i].numpy()
+            state = self._states[i]
             for unit_pts in unit_square_pie:
                 pts = unit_pts * dt
                 pts += state

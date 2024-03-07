@@ -4,7 +4,6 @@ from environments import abstract_environment, renderer
 
 
 class BasicEnvironment(abstract_environment.AbstractEnvironment):
-
     def __init__(self, display: bool, magnification: int):
         self.display = display
         self._init_state = np.array([0.15, 0.15], dtype=np.float32)
@@ -42,4 +41,4 @@ class BasicEnvironment(abstract_environment.AbstractEnvironment):
         if self.display:
             self.renderer.draw(next_state)
             self.renderer.show()
-        return next_state, distance_to_goal
+        return next_state, distance_to_goal.item()

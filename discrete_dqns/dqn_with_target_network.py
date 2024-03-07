@@ -4,7 +4,6 @@ import torch
 
 import helpers
 from discrete_dqns import dqn
-from discrete_dqns import network
 
 
 class DiscreteDQNWithTargetNetwork(dqn.DiscreteDQN):

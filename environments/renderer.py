@@ -60,7 +60,7 @@ class EnvironmentRenderer:
         self._draw_goal()
 
     def _draw_environ(self) -> None:
-        self.image[:] = self._predrawn_environ
+        np.copyto(self.image, self._predrawn_environ)
 
     def _draw_agent(self, agent_state: np.ndarray) -> None:
         agent_centre = (

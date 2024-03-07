@@ -36,7 +36,7 @@ class RandomEnvironment(abstract_environment.AbstractEnvironment):
         if self.display:
             self.renderer.draw(next_state)
             self.renderer.show()
-        return next_state, distance_to_goal
+        return next_state, distance_to_goal.item()
 
     def draw(self, state: np.ndarray) -> None:
         self.renderer.draw(state)

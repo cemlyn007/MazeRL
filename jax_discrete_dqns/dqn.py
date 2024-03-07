@@ -1,4 +1,3 @@
-import torch
 import optax
 import helpers
 from abstract_dqns import dqn
@@ -8,15 +7,13 @@ import jax.numpy as jnp
 
 
 class DiscreteDQN(dqn.AbstractDQN):
-    def __init__(self, hps: helpers.Hyperparameters, n_actions: int, device: torch.device):
-        self.device = device
+    def __init__(self, hps: helpers.JaxHyperparameters, n_actions: int, device: jax.Device):
         self.hps = hps
         self.q_network = network.DiscreteNetwork(2, n_actions)
-        self._params = self.q_network.init(
-            jax.random.PRNGKey(0), jnp.ones((1, 2), jnp.float32))
+        self._params = self.q_network.init(jax.random.PRNGKey(0), jnp.ones((1, 2), jnp.float32))
         self.optimizer = optax.sgd(self.hps.lr)
         self.optimizer_state = self.optimizer.init(self._params)
-        self._device = jax.devices('cpu' if device == torch.device('cpu') else 'gpu')[0]
+        self._device = device
         self._update = jax.jit(self._jax_update, donate_argnums=(0, 1))
 
     def train(self):
@@ -29,18 +26,29 @@ class DiscreteDQN(dqn.AbstractDQN):
     def has_target_network(self) -> bool:
         return False
 
-    def train_q_network(self, transition: torch.Tensor) -> torch.Tensor:
-        jax_transition = jnp.array(transition.numpy(), jnp.float32)
-        jax_transition = jax.device_put(jax_transition, self._device)
-        self._params, self.optimizer_state, losses = self._update(
-            self._params, self.optimizer_state, jax_transition)
-        return torch.tensor(losses)
+    def train_q_network(self, transition: jax.Array) -> jax.Array:
+        jax_transition = jax.device_put(transition, self._device)
+        self._params, self.optimizer_state, losses = self._update(self._params, self.optimizer_state, jax_transition)
+        return losses
     
     def _jax_update(self, params, optimizer_state, transition: jax.Array) -> tuple[any, any, jax.Array]:
-        gradient, losses = jax.grad(self.compute_losses, has_aux=True)(params, transition)
-        update, new_optimizer_state = self.optimizer.update(
-            gradient, params, optimizer_state)
-        new_params = optax.apply_updates(params, update)
+        transition = jax.tree_map(lambda x: jnp.reshape(x, (self.hps.mini_batches, -1, *x.shape[1:])), transition)
+
+        def body_fun(i, carry):
+            params, optimizer_state, transition, losses = carry
+            mini_batch_transition = jax.tree_map(lambda x: x[i], transition)
+            gradient, mini_batch_losses = jax.grad(self.compute_losses, has_aux=True)(params, mini_batch_transition)
+            update, new_optimizer_state = self.optimizer.update(gradient, params, optimizer_state)
+            new_params = optax.apply_updates(params, update)
+            losses = losses.at[i].set(mini_batch_losses)
+            return new_params, new_optimizer_state, losses
+
+        new_params, new_optimizer_state, losses = jax.lax.fori_loop(
+            0,
+            self.hps.mini_batches,
+            body_fun,
+            (params, optimizer_state, transition, jnp.empty(transition[0].shape[0], jnp.float32))
+        )
         return new_params, new_optimizer_state, losses
 
     def compute_losses(self, params, transitions: jax.Array) -> tuple[jax.Array, jax.Array]:

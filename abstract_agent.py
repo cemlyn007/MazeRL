@@ -1,10 +1,8 @@
 import numpy as np
-import torch
 import environments.abstract_environment
 
 
 class AbstractAgent:
-
     def __init__(self, environment: environments.abstract_environment.AbstractEnvironment):
         self.environment = environment
         self.state = None
@@ -17,11 +15,11 @@ class AbstractAgent:
         raise NotImplementedError
 
     @staticmethod
-    def compute_reward(distance_to_goal: np.ndarray) -> float:
+    def compute_reward(distance_to_goal: float) -> float:
         return -distance_to_goal
 
     def get_greedy_action(self, state: np.ndarray) -> np.ndarray:
         raise NotImplementedError
     
-    def get_batch_q_values(self, states: torch.Tensor) -> torch.Tensor:
+    def get_batch_q_values(self, states: np.ndarray) -> np.ndarray:
         raise NotImplementedError

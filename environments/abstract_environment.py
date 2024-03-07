@@ -10,7 +10,7 @@ class AbstractEnvironment(abc.ABC):
     @abc.abstractmethod
     def step(
         self, state: np.ndarray, action: np.ndarray
-    ) -> tuple[np.ndarray, float, bool]:
+    ) -> tuple[np.ndarray, float]:
         raise NotImplementedError
 
     def draw(self, state: np.ndarray) -> None:
