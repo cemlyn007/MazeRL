@@ -36,6 +36,7 @@ class DiscreteDQNWithTargetNetwork(dqn.DiscreteDQN):
         return loss.sum(), loss
     
     def _jax_update(self, params, target_network, optimizer_state, transition: jax.Array) -> tuple[any, any, any, jax.Array]:
+        batch_size = transition.shape[0]
         transition = jax.tree_map(lambda x: jnp.reshape(x, (self.hps.mini_batches, -1, *x.shape[1:])), transition)
 
         def body_fun(i, carry):
@@ -53,7 +54,7 @@ class DiscreteDQNWithTargetNetwork(dqn.DiscreteDQN):
             body_fun,
             (params, target_network, optimizer_state, transition, jnp.empty(transition[0].shape[:2], jnp.float32))
         )
-        return new_params, target_network, new_optimizer_state, losses
+        return new_params, target_network, new_optimizer_state, jnp.reshape(losses, (batch_size,))
 
     def update_target_network(self) -> None:
         self._target_params = copy.deepcopy(self._params)

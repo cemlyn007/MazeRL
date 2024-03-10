@@ -40,8 +40,11 @@ class DiscreteDoubleDQN(dqn_with_target_network.DiscreteDQNWithTargetNetwork):
         return loss.sum(), loss
 
     def _jax_update(self, params, target_network, optimizer_state, transition: jax.Array) -> tuple[any, any, any, jax.Array]:
-        # TODO: This expression is wrong right? Should be (N_MINI_BATCHES, foobar, *shape)
-        transition = jax.tree_map(lambda x: jnp.reshape(x, (self.hps.mini_batches, -1, *x.shape[1:])), transition)
+        batch_size = transition.shape[0]
+        mini_batch_size, remainder = divmod(batch_size, self.hps.mini_batches)
+        if remainder != 0:
+            raise ValueError(f"Batch size {batch_size} is not divisible by mini-batch size {self.hps.mini_batches}")
+        transition = jax.tree_map(lambda x: jnp.reshape(x, (self.hps.mini_batches, mini_batch_size, *x.shape[1:])), transition)
 
         def body_fun(i, carry):
             params, target_network, optimizer_state, transition, losses = carry
@@ -58,4 +61,4 @@ class DiscreteDoubleDQN(dqn_with_target_network.DiscreteDQNWithTargetNetwork):
             body_fun,
             (params, target_network, optimizer_state, transition, jnp.empty(transition.shape[:2], jnp.float32))
         )
-        return new_params, target_network, new_optimizer_state, losses
+        return new_params, target_network, new_optimizer_state, jnp.reshape(losses, (batch_size,))

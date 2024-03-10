@@ -145,6 +145,7 @@ def benchmark(run_id: str):
 
                 transitions = rb.batch_sample()
                 losses = dqn.train_q_network(transitions)
+                rb.update_batch_weights(losses)
                 episode_loss_list.append(losses.sum().item())
 
                 if epsilon > minimum_epsilon:
