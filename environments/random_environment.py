@@ -4,7 +4,6 @@ from environments import abstract_environment, utils, renderer
 
 
 class RandomEnvironment(abstract_environment.AbstractEnvironment):
-
     def __init__(self, display: bool, magnification: int):
         self.display = display
         self.init_state, self.free_blocks, self.goal_state = (
