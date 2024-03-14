@@ -22,7 +22,7 @@ def benchmark(run_id: str):
             self.q_network = q_network
 
         def __call__(self, observations: np.ndarray) -> np.ndarray:
-            return np.asarray(self.q_network.q_network.apply(self.q_network._params, jnp.asarray(observations)))
+            return np.asarray(self.q_network.predict_q_values(jnp.asarray(observations)))
 
     random_state = 816673
     torch.random.manual_seed(random_state)
@@ -144,7 +144,7 @@ def benchmark(run_id: str):
             episode_loss_list.clear()
             episode_reward_list.clear()
             agent.reset()
-            agent.dqn.train()
+            dqn.train()
             for step_num in range(max_steps):
                 transition, distance_to_goal = agent.step(epsilon)
                 state, action, reward, next_state = transition
@@ -168,7 +168,7 @@ def benchmark(run_id: str):
                 if done:
                     break
 
-            agent.dqn.eval()
+            dqn.eval()
             agent.reset()
             states = [agent.state]
             has_reached_goal = False

@@ -4,6 +4,26 @@ from abstract_dqns import dqn
 from jax_discrete_dqns import network
 import jax
 import jax.numpy as jnp
+from typing import TypeVar
+import abc
+from flax.core import scope
+
+
+T = TypeVar('T')
+
+
+class StatelessDiscreteDQN:
+    @property
+    def has_target_network(self) -> bool:
+        return False
+
+    @abc.abstractmethod
+    def predict_q_values(self, network: scope.VariableDict, observations: jax.Array) -> jax.Array:
+        pass
+
+    @abc.abstractmethod
+    def train_q_network(self, state: T, transition: jax.Array) -> tuple[T, jax.Array]:
+        pass
 
 
 class DiscreteDQN(dqn.AbstractDQN):
@@ -26,11 +46,14 @@ class DiscreteDQN(dqn.AbstractDQN):
     def has_target_network(self) -> bool:
         return False
 
+    def predict_q_values(self, observations: jax.Array) -> jax.Array:
+        return self.q_network.apply(self._params, observations)
+
     def train_q_network(self, transition: jax.Array) -> jax.Array:
         jax_transition = jax.device_put(transition, self._device)
         self._params, self.optimizer_state, losses = self._update(self._params, self.optimizer_state, jax_transition)
         return losses
-    
+
     def _jax_update(self, params, optimizer_state, transition: jax.Array) -> tuple[any, any, jax.Array]:
         batch_size = transition.shape[0]
         transition = jax.tree_map(lambda x: jnp.reshape(x, (self.hps.mini_batches, -1, *x.shape[1:])), transition)

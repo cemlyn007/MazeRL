@@ -5,16 +5,15 @@ import abstract_agent
 import jax.numpy as jnp
 import environments.abstract_environment
 import helpers
-import jax_discrete_dqns.dqn
+import abstract_dqns.dqn
 
 class DiscreteAgent(abstract_agent.AbstractAgent):
     def __init__(self, environment: environments.abstract_environment.AbstractEnvironment,
-                 dqn: jax_discrete_dqns.dqn.DiscreteDQN, n_actions: int, stride: float):
+                 dqn: abstract_dqns.dqn.AbstractDQN, n_actions: int, stride: float):
         super().__init__(environment)
         self.dqn = dqn
         self._n_actions = n_actions
         self._actions = self._create_actions(n_actions, stride)
-        self._get_batch_q_values = jax.jit(self._get_batch_q_values)
 
     def step(self, epsilon: float = 0) -> tuple[tuple, float]:
         if epsilon <= np.random.uniform():
@@ -31,17 +30,13 @@ class DiscreteAgent(abstract_agent.AbstractAgent):
         return transition, distance_to_goal
 
     def get_batch_q_values(self, states: np.ndarray) -> np.ndarray:
-        q_values = self._get_batch_q_values(self.dqn._params, jnp.asarray(states))
+        q_values = self.dqn.predict_q_values(jnp.asarray(states))
         return np.asarray(q_values)
 
     def get_greedy_action(self, state: np.ndarray) -> np.ndarray:
-        discrete_action = self._get_batch_q_values(self.dqn._params, jnp.expand_dims(jnp.asarray(state), 0)).item()
+        discrete_action = self.dqn.predict_q_values(jnp.expand_dims(jnp.asarray(state), 0)).item()
         return self._actions[discrete_action]
-    
-    def _get_batch_q_values(self, params, states: jax.Array) -> jax.Array:
-        q_values = self.dqn.q_network.apply(params, states)
-        return q_values
- 
+
     def _create_actions(self, n_actions: int, stride: float) -> np.ndarray:
         actions = []
         for i in range(n_actions):

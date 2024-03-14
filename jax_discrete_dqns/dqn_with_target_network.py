@@ -16,6 +16,9 @@ class DiscreteDQNWithTargetNetwork(dqn.DiscreteDQN):
     @property
     def has_target_network(self) -> bool:
         return True
+    
+    def predict_q_values(self, observations: jax.Array) -> jax.Array:
+        return self.q_network.apply(self._params, observations)
 
     def train_q_network(self, transition: jax.Array) -> jax.Array:
         jax_transition = jax.device_put(transition, self._device)
