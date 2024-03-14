@@ -15,6 +15,14 @@ def benchmark(run_id: str):
     from tools.actions_visual_tool import ActionsVisualTool
     import random
     import jax
+    import jax.numpy as jnp
+
+    class GetQValues:
+        def __init__(self, q_network: jax_discrete_dqns.double_dqn.DiscreteDoubleDQN):
+            self.q_network = q_network
+
+        def __call__(self, observations: np.ndarray) -> np.ndarray:
+            return np.asarray(self.q_network.q_network.apply(self.q_network._params, jnp.asarray(observations)))
 
     random_state = 816673
     torch.random.manual_seed(random_state)
@@ -54,7 +62,7 @@ def benchmark(run_id: str):
     )
 
     rollout_tool = episode_rollout_tool.EpisodeRolloutTool(environment.renderer.image)
-    actions_tool = ActionsVisualTool(500, 15, n_actions, agent)
+    actions_tool = ActionsVisualTool(500, 15, n_actions, GetQValues(dqn))
 
     hyperparameters = {
         "gamma": hps.gamma,
@@ -114,7 +122,7 @@ def benchmark(run_id: str):
         # We pad the buffer with random transitions to ensure we don't trigger recompilation.
         agent.reset()
         state = agent.state
-        while len(rb) < batch_size:
+        for _ in range(batch_size):
             discrete_action = np.random.randint(0, agent._n_actions)
             next_state, distance_to_goal = agent.environment.step(
                 state,

@@ -1,12 +1,7 @@
 import math
-import time
-import torch
+from typing import Callable
 import cv2
 import numpy as np
-
-import discrete_agent
-import discrete_dqns.dqn
-import environments.basic_environment
 import tools.abstract_graphics
 
 
@@ -19,13 +14,13 @@ class ActionsVisualTool(tools.abstract_graphics.AbstractGraphics):
         magnification: int,
         n_cells: int,
         n_actions: int,
-        agent: discrete_agent.abstract_agent.AbstractAgent,
-    ):
+        get_batch_q_values: Callable[[np.ndarray], np.ndarray],
+    ) -> None:
         super().__init__("Actions Qs")
         self.magnification = magnification
         self.n_cells = n_cells
         self.n_actions = n_actions
-        self.agent = agent
+        self.get_batch_q_values = get_batch_q_values
         self.image = np.zeros(
             [int(self.magnification), int(self.magnification), 3], dtype=np.uint8
         )
@@ -33,7 +28,7 @@ class ActionsVisualTool(tools.abstract_graphics.AbstractGraphics):
         self._list_polygons = self._get_list_polygons()
 
     def draw(self) -> None:
-        batch_q_values = self.agent.get_batch_q_values(self._states)
+        batch_q_values = self.get_batch_q_values(self._states)
         batch_intensity = batch_q_values - batch_q_values.min(axis=1, keepdims=True)
         batch_intensity /= (batch_q_values.max(axis=1, keepdims=True) - batch_q_values.min(axis=1, keepdims=True))
         batch_intensity *= 255.0
@@ -107,7 +102,7 @@ class ActionsVisualTool(tools.abstract_graphics.AbstractGraphics):
             polygon = np.concatenate(
                 (np.array([centre]),
                  (rs * np.array([cos_theta, sin_theta])).T
-                ), axis=0
+                 ), axis=0
             )
 
             polygons.append(polygon)
@@ -116,9 +111,9 @@ class ActionsVisualTool(tools.abstract_graphics.AbstractGraphics):
     def _get_list_polygons(self) -> list[list[np.ndarray]]:
         dt = 1.0 / self.n_cells / 2.0
         list_polygons = []
-        unit_square_pie = unit_pts  = self._get_unit_square_pie()
+        unit_square_pie = unit_pts = self._get_unit_square_pie()
         for i in range(self.n_cells * self.n_cells):
-            polygons =  []
+            polygons = []
             state = self._states[i]
             for unit_pts in unit_square_pie:
                 pts = unit_pts * dt
@@ -131,21 +126,3 @@ class ActionsVisualTool(tools.abstract_graphics.AbstractGraphics):
 
     def _convert(self, pt: np.ndarray) -> np.ndarray:
         return super()._convert(pt, self.magnification)
-
-def _main():
-    env = environments.basic_environment.BasicEnvironment(False, 500)
-    agent = discrete_agent.DiscreteAgent(
-        env,
-        discrete_dqns.dqn.DiscreteDQN(discrete_dqns.dqn.helpers.Hyperparameters(), 4),
-        4,
-        0.01,
-    )
-    tool = ActionsVisualTool(500, 3, 4, agent)
-    for i in range(100):
-        tool.draw()
-        tool.show()
-        time.sleep(1.0)
-
-
-if __name__ == '__main__':
-    _main()
