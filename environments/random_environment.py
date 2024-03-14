@@ -1,41 +1,30 @@
 import numpy as np
-
-from environments import abstract_environment, utils, renderer
+import jax
+from environments import abstract_environment, renderer, jax_random_environment
 
 
 class RandomEnvironment(abstract_environment.AbstractEnvironment):
     def __init__(self, display: bool, magnification: int):
+        self._stateless_environment = jax_random_environment.RandomEnvironment()
         self.display = display
-        self.init_state, self.free_blocks, self.goal_state = (
-            utils.get_environment_space()
-        )
         self.renderer = renderer.EnvironmentRenderer(
-            "Random Environment", magnification, self.free_blocks, self.goal_state
+            "Random Environment",
+            magnification,
+            np.array(self._stateless_environment.free_blocks),
+            np.array(self._stateless_environment.goal_state)
         )
+        self._reset = jax.jit(self._stateless_environment.reset)
+        self._step = jax.jit(self._stateless_environment.step)
 
     def reset(self) -> np.ndarray:
-        return self.init_state
+        return np.array(self._reset())
 
     def step(self, state: np.ndarray, action: np.ndarray) -> tuple[np.ndarray, float]:
-        next_state = np.where(np.linalg.norm(action) > 0.02, state, state + action)
-        in_bounds = np.any(
-            np.logical_and(
-                np.logical_and(
-                    self.free_blocks[:, 0, 0] < next_state[0],
-                    next_state[0] < self.free_blocks[:, 1, 0],
-                ),
-                np.logical_and(
-                    self.free_blocks[:, 1, 1] < next_state[1],
-                    next_state[1] < self.free_blocks[:, 0, 1],
-                ),
-            )
-        )
-        next_state = np.where(in_bounds, next_state, state)
-        distance_to_goal = np.linalg.norm(next_state - self.goal_state)
+        next_state, distance_to_goal = self._step(state, action)
         if self.display:
             self.renderer.draw(next_state)
             self.renderer.show()
-        return next_state, distance_to_goal.item()
+        return np.array(next_state), distance_to_goal.item()
 
     def draw(self, state: np.ndarray) -> None:
         self.renderer.draw(state)

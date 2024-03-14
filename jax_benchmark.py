@@ -54,11 +54,12 @@ def benchmark(run_id: str):
     environment = random_environment.RandomEnvironment(
         display=display_game, magnification=500
     )
-    environment.draw(environment.init_state)
+    init_state = environment.reset()
+    environment.draw(init_state)
     dqn = jax_discrete_dqns.double_dqn.DiscreteDoubleDQN(hps, n_actions, device)
     agent = jax_discrete_agent.DiscreteAgent(environment, dqn, n_actions, stride=0.02)
     rb = fast_prioritised_rb.FastPrioritisedExperienceReplayBuffer(
-        max_capacity, batch_size, sampling_eps, environment.init_state.shape
+        max_capacity, batch_size, sampling_eps, init_state.shape
     )
 
     rollout_tool = episode_rollout_tool.EpisodeRolloutTool(environment.renderer.image)
