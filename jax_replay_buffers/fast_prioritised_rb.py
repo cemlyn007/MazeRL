@@ -1,3 +1,4 @@
+from typing import NamedTuple
 import numpy as np
 import jax
 
@@ -7,68 +8,93 @@ import operator
 import jax.numpy as jnp
 
 
+class State(NamedTuple):
+    index: jax.Array
+    buffer: jax.Array
+    weights: jax.Array
+
+
+class StatelessFastPrioritisedExperienceReplayBuffer:
+    def __init__(self, max_capacity: int, batch_size: int, eps: float, state_shape: tuple[int, ...]):
+        self._batch_size = batch_size
+        self._max_capacity = max_capacity
+        self._full = False
+        self._state_size = functools.reduce(operator.mul, state_shape, 1)
+        self._container_shape = (max_capacity, self._state_size + 1 + 1 + 1 + self._state_size)
+        self.eps = eps
+
+    def reset(self) -> State:
+        return State(
+            index=jnp.array(0, dtype=jnp.uint32),
+            buffer=jnp.empty(self._container_shape, dtype=jnp.float32),
+            weights=jnp.zeros(self._max_capacity, dtype=jnp.float32),
+        )
+
+    def store(self, state: State, observation: jax.Array, action: jax.Array, reward: jax.Array, done: jax.Array,
+              next_observation: jax.Array) -> State:
+        if observation.dtype != jnp.float32:
+            raise ValueError("Observation must be of type jnp.float32")
+        if next_observation.dtype != jnp.float32:
+            raise ValueError("Next observation must be of type jnp.float32")
+        entry = jnp.array((*observation, action, reward, done, *next_observation), dtype=jnp.float32)
+        if entry.shape != self._container_shape[1:]:
+            raise ValueError(
+                f"Entry shape must be {self._container_shape[1:]} but got {entry.shape}"
+            )
+        # else...
+        buffer = state.buffer.at[state.index].set(entry)
+        weights = state.weights.at[state.index].set(jnp.where(state.index > 0, jnp.max(state.weights), 1.0))
+        index = (state.index + 1) % self._max_capacity
+        return State(
+            index,
+            buffer,
+            weights,
+        )
+
+    def batch_sample(self, state: State, key: jax.Array) -> tuple[jax.Array, jax.Array]:
+        probabilties = state.weights / jnp.sum(state.weights)
+        indices = jax.random.choice(key, self._max_capacity, (self._batch_size,), replace=False, p=probabilties)
+        return state.buffer[indices], indices
+
+    def update_batch_weights(self, state: State, indices: jax.Array, losses: jax.Array) -> State:
+        batch_weights = jnp.abs(losses) + self.eps
+        weights = state.weights.at[indices].set(batch_weights)
+        return state._replace(weights=weights)
+
+
 class FastPrioritisedExperienceReplayBuffer(abstract_replay_buffer.ReplayBuffer):
     def __init__(self, max_capacity: int, batch_size: int, eps: float, state_shape: tuple[int, ...]):
-        self.batch_size = batch_size
-        self._max_capacity = max_capacity
-        self._index = jnp.array(0, dtype=jnp.uint32)
-        self._full = False
-        state_size = functools.reduce(operator.mul, state_shape, 1)
-        self._container = jnp.empty((max_capacity, state_size + 1 + 1 + 1 + state_size), dtype=jnp.float32)
-        self.eps = eps
-        self._weights = jnp.zeros(max_capacity, dtype=jnp.float32)
-        self._indices = jnp.empty((batch_size,), dtype=jnp.uint32)
         self._key = jax.random.PRNGKey(0)
-        self._store = jax.jit(self._store, donate_argnums=(0, 1, 2))
-        self._jitted_update_batch_weights = jax.jit(self._update_batch_weights, donate_argnums=(0,))
-        self._sample_indices_when_full = jax.jit(self._sample_indices_when_full)
+        self._stateless = StatelessFastPrioritisedExperienceReplayBuffer(max_capacity, batch_size, eps, state_shape)
 
-    def store(self, state: np.ndarray, action: int, reward: float, done: bool,
-              new_state: np.ndarray):
-        entry = jnp.array((*state, action, reward, done, *new_state), dtype=jnp.float32)
-        self._container, self._weights, self._index = self._store(self._container, self._weights, self._index, entry)
-        self._full = self._max_capacity or self._index == self._max_capacity
-        self._index %= self._max_capacity
+        self._stateless_state = self._stateless.reset()
+        self._stateless_state_indices = None
 
-    def _store(self, container: jax.Array, weights: jax.Array, index: jax.Array, entry: jax.Array) -> tuple[jax.Array, jax.Array, jax.Array]:
-        container = container.at[index].set(entry)
-        weights = weights.at[index].set(jnp.where(index > 0, jnp.max(weights), 1.))
-        index += 1
-        return container, weights, index
+        self._stateless_store = jax.jit(self._stateless.store)
+        self._stateless_batch_sample = jax.jit(self._stateless.batch_sample)
+        self._stateless_update_batch_weights = jax.jit(self._stateless.update_batch_weights)
+
+    def store(self, state: np.ndarray, action: int, reward: float, done: bool, new_state: np.ndarray) -> None:
+        self._stateless_state = self._stateless_store(
+            self._stateless_state,
+            jnp.array(state),
+            jnp.array(action),
+            jnp.array(reward),
+            jnp.array(done),
+            jnp.array(new_state)
+        )
 
     def batch_sample(self) -> jax.Array:
-        if self._full:
-            self._key, key = jax.random.split(self._key)
-            self._indices = self._sample_indices_when_full(self._weights, key)
-        elif not self._full and self.batch_size > self._index:
-            raise ValueError("Not enough samples in the buffer")
-        else:
-            # with jax.disable_jit():
-            #     self._key, key = jax.random.split(self._key)
-            #     self._indices = jax.random.choice(
-            #         key, 
-            #         jnp.arange(self._index), 
-            #         (self.batch_size,),
-            #         replace=False,
-            #         p=self._weights[:self._index] / jnp.sum(self._weights[:self._index])
-            #     )
-            self._key, key = jax.random.split(self._key)
-            self._indices = self._sample_indices_when_full(self._weights, key)
-        return self._container[self._indices]
-
-    def _sample_indices_when_full(self, weights: jax.Array, key: jax.Array) -> jax.Array:
-        return jax.random.choice(key, self._max_capacity, (self.batch_size,), replace=False, p=weights / jnp.sum(weights))
+        self._key, key = jax.random.split(self._key)
+        batch, self._stateless_state_indices = self._stateless_batch_sample(self._stateless_state, key)
+        return batch
 
     def update_batch_weights(self, losses: jax.Array) -> None:
-        if self.batch_size == len(losses):
-            self._weights = self._jitted_update_batch_weights(self._weights, self._indices, losses)
-        else:
-            self._weights = self._update_batch_weights(self._weights, self._indices, losses)
-
-    def _update_batch_weights(self, weights:jax.Array, indices: jax.Array, losses: jax.Array) -> jax.Array:
-        batch_weights = jnp.abs(losses) + self.eps
-        weights = weights.at[indices].set(batch_weights)
-        return weights
-
-    def __len__(self) -> int:
-        return self._max_capacity if self._full else self._index.item()
+        if self._stateless_state_indices is None:
+            raise ValueError("Cannot update batch weights before sampling a batch")
+        # else...
+        self._stateless_state = self._stateless_update_batch_weights(
+            self._stateless_state,
+            self._stateless_state_indices,
+            losses
+        )
