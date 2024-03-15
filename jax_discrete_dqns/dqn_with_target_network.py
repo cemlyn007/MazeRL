@@ -3,61 +3,113 @@ import copy
 import jax
 import optax
 import helpers
-from jax_discrete_dqns import dqn
 import jax.numpy as jnp
+from typing import NamedTuple
+from flax.core import scope
+import abstract_dqns.dqn
+from jax_discrete_dqns import network
+
+class State(NamedTuple):
+    network: scope.VariableDict
+    target_network: scope.VariableDict
+    optimizer: optax.OptState
 
 
-class DiscreteDQNWithTargetNetwork(dqn.DiscreteDQN):
-    def __init__(self, hps: helpers.JaxHyperparameters, n_actions: int, device: jax.Device):
-        super().__init__(hps, n_actions, device)
-        self._target_params = copy.deepcopy(self._params)
-        self._update = jax.jit(self._jax_update, donate_argnums=(0, 2))
+class StatelessDiscreteDQNWithTargetNetwork:
+    def __init__(self, hps: helpers.JaxHyperparameters, n_actions: int) -> None:
+        self.hps = hps
+        self.q_network = network.DiscreteNetwork(2, n_actions)
+        self.optimizer = optax.sgd(self.hps.lr)
 
     @property
     def has_target_network(self) -> bool:
-        return True
+        return False
     
-    def predict_q_values(self, observations: jax.Array) -> jax.Array:
-        return self.q_network.apply(self._params, observations)
+    def reset(self) -> State:
+        network = self.q_network.init(jax.random.PRNGKey(0), jnp.ones((1, 2), jnp.float32))
+        target_network = self.q_network.init(jax.random.PRNGKey(0), jnp.ones((1, 2), jnp.float32))
+        optimizer_state = self.optimizer.init(network)
+        return State(network=network, target_network=target_network, optimizer=optimizer_state)
 
-    def train_q_network(self, transition: jax.Array) -> jax.Array:
-        jax_transition = jax.device_put(transition, self._device)
-        self._params, self._target_params, self.optimizer_state, losses = self._update(
-            self._params, self._target_params, self.optimizer_state, jax_transition
+    def predict_q_values(self, network: scope.VariableDict, observations: jax.Array) -> jax.Array:
+        q_values: jax.Array = self.q_network.apply(network, observations)
+        return q_values
+
+    def train_q_network(self, state: State, transition: jax.Array) -> tuple[T, jax.Array]:
+        batch_size = transition.shape[0]
+        transition = jax.tree_map(lambda x: jnp.reshape(x, (self.hps.mini_batches, -1, *x.shape[1:])), transition)
+
+        def body_fun(i, carry: tuple[State, jax.Array, jax.Array]) -> tuple[State, jax.Array, jax.Array]:
+            state, transition, losses = carry
+            mini_batch_transition = jax.tree_map(lambda x: x[i], transition)
+            gradient, mini_batch_losses = jax.grad(self.compute_losses, has_aux=True)(state.network, mini_batch_transition)
+            update, new_optimizer_state = self.optimizer.update(gradient, state.network, state.optimizer)
+            new_params = optax.apply_updates(state.network, update)
+            losses = losses.at[i].set(mini_batch_losses)
+            new_state = State(network=new_params, optimizer=new_optimizer_state)
+            return new_state, transition, losses
+
+        new_state, _, losses = jax.lax.fori_loop(
+            0,
+            self.hps.mini_batches,
+            body_fun,
+            (state, transition, jnp.empty(transition[0].shape[0], jnp.float32))
         )
-        return losses
-
-    def compute_losses(self, params, target_params, transitions: jax.Array) -> tuple[jax.Array, jax.Array]:
+        return new_state, jnp.reshape(losses, (batch_size,))
+    
+    def compute_losses(self, network: scope.VariableDict, target_network: scope.VariableDict, transitions: jax.Array) -> tuple[jax.Array, jax.Array]:
         states, actions, rewards, dones, next_states = self._unpack_transitions(transitions)
-        q_values = self.q_network.apply(params, states)
+        q_values = self.q_network.apply(network, states)
         selected_q_values = jnp.take_along_axis(q_values, actions, axis=1).flatten()
-        next_q_values = self.q_network.apply(target_params, next_states)
+        next_q_values = self.q_network.apply(target_network, next_states)
         next_q_values = jax.lax.stop_gradient(next_q_values)
         max_q_values = jnp.max(next_q_values, axis=1)
         targets = rewards + self.hps.gamma * max_q_values * (1 - dones)
         loss = jnp.abs(selected_q_values - targets)
         return loss.sum(), loss
-    
-    def _jax_update(self, params, target_network, optimizer_state, transition: jax.Array) -> tuple[any, any, any, jax.Array]:
-        batch_size = transition.shape[0]
-        transition = jax.tree_map(lambda x: jnp.reshape(x, (self.hps.mini_batches, -1, *x.shape[1:])), transition)
 
-        def body_fun(i, carry):
-            params, target_network, optimizer_state, transition, losses = carry
-            mini_batch_transition = jax.tree_map(lambda x: x[i], transition)
-            gradient, mini_batch_losses = jax.grad(self.compute_losses, has_aux=True)(params, target_network, mini_batch_transition)
-            update, new_optimizer_state = self.optimizer.update(gradient, params, optimizer_state)
-            new_params = optax.apply_updates(params, update)
-            losses = losses.at[i].set(mini_batch_losses)
-            return new_params, target_network, new_optimizer_state, losses
+    @staticmethod
+    def _unpack_transitions(transitions: jax.Array) -> tuple[jax.Array, jax.Array,
+                                                             jax.Array,
+                                                             jax.Array, jax.Array]:
+        states = transitions[:, :2]
+        actions = transitions[:, 2].astype(jnp.int32)
+        actions = jnp.expand_dims(actions, axis=-1)
+        rewards = transitions[:, 3]
+        dones = transitions[:, 4]
+        next_states = transitions[:, 5:]
+        return states, actions, rewards, dones, next_states
 
-        new_params, target_network, new_optimizer_state, losses = jax.lax.fori_loop(
-            0,
-            self.hps.mini_batches,
-            body_fun,
-            (params, target_network, optimizer_state, transition, jnp.empty(transition[0].shape[:2], jnp.float32))
-        )
-        return new_params, target_network, new_optimizer_state, jnp.reshape(losses, (batch_size,))
+
+class DiscreteDQNWithTargetNetwork(abstract_dqns.dqn.AbstractDQN):
+    def __init__(self, hps: helpers.JaxHyperparameters, n_actions: int, device: jax.Device) -> None:
+        self.hps = hps
+        self._stateless_dqn = StatelessDiscreteDQNWithTargetNetwork(hps, n_actions)
+        self._state = self._stateless_dqn.reset()
+        self._device = device
+        self._update = jax.jit(self._stateless_dqn.train_q_network, donate_argnums=(0,))
+        self._predict_q_values = jax.jit(self._stateless_dqn.predict_q_values)
+
+    def train(self):
+        pass
+
+    def eval(self):
+        pass
+
+    @property
+    def has_target_network(self) -> bool:
+        return self._stateless_dqn.has_target_network
+
+    def predict_q_values(self, observations: jax.Array) -> jax.Array:
+        return self._predict_q_values(self._state, observations)
+
+    def train_q_network(self, transition: jax.Array) -> jax.Array:
+        jax_transition = jax.device_put(transition, self._device)
+        self._state, losses = self._update(self._state, jax_transition)
+        return losses
+
+    def compute_losses(self, params, transitions: jax.Array) -> tuple[jax.Array, jax.Array]:
+        return self._stateless_dqn.compute_losses(params, transitions)
 
     def update_target_network(self) -> None:
-        self._target_params = copy.deepcopy(self._params)
+        self._state = self._state._replace(target_network=copy.deepcopy(self._state.network))

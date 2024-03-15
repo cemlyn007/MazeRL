@@ -1,11 +1,10 @@
 from typing import NamedTuple
 
-from torch import Tensor
 import helpers
 import jax.numpy as jnp
 import jax
 import abstract_dqns.dqn
-from jax_discrete_dqns import network, dqn
+from jax_discrete_dqns import network
 import optax
 import helpers
 from flax.core import scope
@@ -16,8 +15,8 @@ class State(NamedTuple):
     optimizer: optax.OptState
 
 
-class StatelessDiscreteDoubleDQN(dqn.StatelessDiscreteDQN):
-    def __init__(self, hps: helpers.JaxHyperparameters, n_actions: int):
+class StatelessDiscreteDoubleDQN:
+    def __init__(self, hps: helpers.JaxHyperparameters, n_actions: int) -> None:
         self._hps = hps
         self._n_actions = n_actions
         self.q_network = network.DiscreteNetwork(2, n_actions)
@@ -134,7 +133,7 @@ class DiscreteDoubleDQN(abstract_dqns.dqn.AbstractDQN):
         )
         return losses
     
-    def compute_losses(self, transitions: Tensor) -> Tensor:
+    def compute_losses(self, transitions: jax.Array) -> jax.Array:
         return self._compute_losses(self._state.network, self._state.target_network, transitions)
 
     def update_target_network(self) -> None:
