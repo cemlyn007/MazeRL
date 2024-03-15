@@ -156,54 +156,113 @@ def benchmark(run_id: str):
 
     with jax.log_compiles(True):
 
+        environment_reset = jax.jit(environment.reset)
         environment_step = jax.jit(environment.step)
 
-        # We pad the buffer with random transitions to ensure we don't trigger recompilation.
-        observation = environment.reset()
-        for _ in range(batch_size):
-            discrete_action = np.random.randint(0, n_actions)
-            next_observation, distance_to_goal = environment_step(
-                observation,
-                actions[discrete_action]
-            )
-            reward =  - distance_to_goal
-            done = distance_to_goal < 0.03
-            rb_state = store(rb_state, observation, discrete_action, reward, done, next_observation)
-            if done:
-                observation = environment.reset()
-            else:
-                next_observation = observation
+        @jax.jit
+        def generate_random_rb() -> fast_prioritised_rb.State:
 
-        train_q_network = jax.jit(dqn.train_q_network)
+            def body_fun(i: jax.Array, carry: tuple[fast_prioritised_rb.State, jax.Array]) -> tuple[fast_prioritised_rb.State, jax.Array]:
+                rb_state, observation= carry
+                discrete_action = jax.random.randint(jax.random.PRNGKey(i), (), 0, n_actions)
+                next_observation, distance_to_goal = environment_step(
+                    observation,
+                    jax_actions[discrete_action],
+                )
+                reward = - distance_to_goal
+                done = distance_to_goal < 0.03
+                updated_rb_state = store(rb_state, observation, discrete_action, reward, done, next_observation)
+                next_observation = jnp.where(done, environment_reset(), next_observation)
+                return updated_rb_state, next_observation
+
+            updated_rb_state, _ = jax.lax.fori_loop(
+                0,
+                batch_size,
+                body_fun,
+                (rb.reset(), environment_reset())
+            )
+
+            return updated_rb_state
 
         @jax.jit
-        def step(dqn_state, rb_state, observation, key, epsilon) -> tuple[jax_discrete_dqns.double_dqn.State, fast_prioritised_rb.State, jax.Array, jax.Array, jax.Array, jax.Array]:
-            select_action_key, sample_key = jax.random.split(key)
-            discrete_action = select_action(dqn_state.network, observation, select_action_key, epsilon)
-            action = jax_actions[discrete_action]
-            next_observation, distance_to_goal = environment_step(
-                observation,
-                action
+        def play_and_train(step_id:jax.Array, dqn_state: jax_discrete_dqns.double_dqn.State, rb_state: fast_prioritised_rb.State, epsilon: jax.Array) -> tuple[jax.Array, jax.Array, jax_discrete_dqns.double_dqn.State, fast_prioritised_rb.State, jax.Array, jax.Array, jax.Array]:
+
+            def cond_fun(carry: tuple[jax.Array, jax.Array, jax_discrete_dqns.double_dqn.State, fast_prioritised_rb.State, jax.Array, jax.Array, jax.Array, jax.Array, jax.Array]) -> jax.Array:
+                i, step_id, dqn_state, rb_state, next_observation, done, epsilon, episode_rewards, episode_losses = carry
+                return jnp.logical_and(i < max_steps, jnp.logical_not(done))
+
+            def body_fun(carry: tuple[jax.Array, jax.Array, jax_discrete_dqns.double_dqn.State, fast_prioritised_rb.State, jax.Array, jax.Array, jax.Array, jax.Array, jax.Array]) -> tuple[jax.Array, jax.Array, jax_discrete_dqns.double_dqn.State, fast_prioritised_rb.State, jax.Array, jax.Array, jax.Array, jax.Array, jax.Array]:
+                i, step_id, dqn_state, rb_state, observation, done, epsilon, episode_rewards, episode_losses = carry
+                select_action_key, sample_key = jax.random.split(jax.random.PRNGKey(step_id))
+                discrete_action = select_action(dqn_state.network, observation, select_action_key, epsilon)
+                next_observation, distance_to_goal = environment_step(
+                    observation,
+                    jax_actions[discrete_action],
+                )
+                reward = - distance_to_goal
+                done = distance_to_goal < 0.03
+                updated_rb_state = store(rb_state, observation, discrete_action, reward, done, next_observation)
+                batch, indices = batch_sample(updated_rb_state, sample_key)
+                updated_dqn_state, losses = train_q_network(dqn_state, batch)
+                weight_updated_rb_state = update_batch_weights(updated_rb_state, indices, losses)
+
+                epsilon = jnp.maximum(epsilon - delta, minimum_epsilon)
+                if dqn.has_target_network:
+                    update_target = (step_id % tau) == 0
+                    updated_dqn_state = updated_dqn_state._replace(target_network=jax.tree_map(
+                        lambda x, y: jnp.where(update_target, x, y),
+                        updated_dqn_state.network,
+                        updated_dqn_state.target_network,
+                    ))
+
+                episode_rewards = episode_rewards.at[i].set(reward)
+                episode_losses = episode_losses.at[i].set(jnp.sum(losses))
+                return i+1, step_id+1, updated_dqn_state, weight_updated_rb_state, next_observation, done, epsilon, episode_rewards, episode_losses
+
+            episode_length, step_id, dqn_state, rb_state, next_observation, done, epsilon, episode_rewards, episode_losses = jax.lax.while_loop(
+                cond_fun,
+                body_fun,
+                (jnp.array(0), step_id, dqn_state, rb_state, environment_reset(), jnp.array(False), epsilon, jnp.empty((max_steps,)), jnp.empty((max_steps,)))
             )
-            reward = - distance_to_goal
-            done = distance_to_goal < 0.03
-            rb_state = store(rb_state, observation, discrete_action, reward, done, next_observation)
-            batch, indices = batch_sample(rb_state, sample_key)
-            dqn_state, losses = train_q_network(dqn_state, batch)
-            rb_state = update_batch_weights(rb_state, indices, losses)
-            return dqn_state, rb_state, next_observation, reward, done, losses.sum()
+
+            return step_id, episode_length, dqn_state, rb_state, epsilon, episode_rewards, episode_losses
         
         @jax.jit
-        def evaluate_step(network, rb_state, observation) -> tuple[fast_prioritised_rb.State, jax.Array, jax.Array, jax.Array]:
-            discrete_action = get_greedy_action(network, observation)
-            next_observation, distance_to_goal = environment_step(
-                observation,
-                jax_actions[discrete_action],
+        def evaluate_episode(network: scope.VariableDict, rb_state: fast_prioritised_rb.State) -> tuple[jax.Array, fast_prioritised_rb.State, jax.Array, jax.Array]:
+
+            def cond_fun(carry: tuple[jax.Array, fast_prioritised_rb.State, jax.Array, jax.Array, jax.Array]) -> jax.Array:
+                i, rb_state, observation, done, episode_observations = carry
+                return jnp.logical_and(i < evaluate_max_steps, jnp.logical_not(done))
+
+            def body_fun(carry: tuple[jax.Array, fast_prioritised_rb.State, jax.Array, jax.Array, jax.Array]) -> tuple[jax.Array, fast_prioritised_rb.State, jax.Array, jax.Array, jax.Array]:
+                i, rb_state, observation, done, episode_observations = carry
+                discrete_action = get_greedy_action(network, observation)
+                next_observation, distance_to_goal = environment_step(
+                    observation,
+                    jax_actions[discrete_action],
+                )
+                reward = - distance_to_goal
+                done = distance_to_goal < 0.03
+                updated_rb_state = store(rb_state, observation, discrete_action, reward, done, next_observation)
+                episode_observations = episode_observations.at[i+1].set(next_observation)
+                return i+1, updated_rb_state, next_observation, done, episode_observations
+
+            observation = environment_reset()
+            episode_observations = jnp.empty((evaluate_max_steps+1, 2))
+            episode_observations = episode_observations.at[0].set(observation)
+
+            episode_length, updated_rb_state, next_observation, done, episode_observations = jax.lax.while_loop(
+                cond_fun,
+                body_fun,
+                (jnp.array(0), rb_state, observation, jnp.array(False), episode_observations)
             )
-            reward = - distance_to_goal
-            done = distance_to_goal < 0.03
-            rb_state = store(rb_state, observation, discrete_action, reward, done, next_observation)
-            return rb_state, next_observation, reward, done
+
+            return episode_length, updated_rb_state, episode_observations, done
+
+        # We pad the buffer with random transitions to ensure we don't trigger recompilation.
+        rb_state = generate_random_rb()
+
+        train_q_network = jax.jit(dqn.train_q_network)
 
         step_id = 0
         episode_loss_list = []
@@ -211,59 +270,32 @@ def benchmark(run_id: str):
         for episode_id in range(max_episodes):
             episode_loss_list.clear()
             episode_reward_list.clear()
-            observation = environment.reset()
-            for _ in range(max_steps):
-                dqn_state, rb_state, observation, reward, done, loss = step(
-                    dqn_state,
-                    rb_state,
-                    observation,
-                    jax.random.PRNGKey(step_id),
-                    epsilon
-                )
-                episode_reward_list.append(reward.item())
-                episode_loss_list.append(loss.item())
+            step_id, episode_length, dqn_state, rb_state, epsilon, episode_rewards, episode_losses, = play_and_train(step_id, dqn_state, rb_state, epsilon)
+            episode_reward_list.extend((x.item() for x in episode_rewards[:episode_length]))
+            episode_loss_list.extend((x.item() for x in episode_losses[:episode_length]))
 
-                if epsilon > minimum_epsilon:
-                    epsilon -= delta
-                    epsilon = max(epsilon, minimum_epsilon)
 
-                if dqn.has_target_network and (step_id % tau == 0):
-                    dqn_state = dqn_state._replace(target_network=dqn_state.network)
-                step_id += 1
-
-                if done:
-                    break
-
-            observation = environment.reset()
-            states = [observation]
-            has_reached_goal = False
-            for _ in range(evaluate_max_steps):
-                rb_state, observation, reward, done = evaluate_step(
-                    dqn_state.network,
-                    rb_state,
-                    observation
-                )
-                states.append(observation)
-
-                if done:
-                    evaluate_reached_goal_count += 1
-                    has_reached_goal = True
-                    break
+            episode_length, rb_state, episode_observations, has_reached_goal = evaluate_episode(dqn_state.network, rb_state)
+            observations = episode_observations[:episode_length+1]
+            has_reached_goal = has_reached_goal.item()
+            evaluate_reached_goal_count += has_reached_goal
 
             if episode_reward_list:
                 rewards = np.array(episode_reward_list)
                 log("reward", rewards, episode_id)
                 writer.add_histogram("reward_dist", rewards, episode_id)
+                writer.add_hparams(hyperparameters, metrics(rewards))
+
             if episode_loss_list:
                 step_losses = np.array(episode_loss_list)
                 log("loss", step_losses, episode_id)
-            writer.add_hparams(hyperparameters, metrics(rewards))
+
             writer.add_scalar("reached_goal", has_reached_goal, episode_id)
             writer.add_scalar("reached_goal_count", evaluate_reached_goal_count, episode_id)
-            writer.add_scalar("epsilon", epsilon, episode_id)
+            writer.add_scalar("epsilon", epsilon.item(), episode_id)
 
             get_q_values.update_q_network(dqn_state.network)            
-            rollout_tool.set_states(np.asarray(states))
+            rollout_tool.set_states(np.asarray(observations))
             if display_tools:
                 rollout_tool.draw()
                 log_greedy_policy(draw=False)
