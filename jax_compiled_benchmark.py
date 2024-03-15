@@ -185,7 +185,7 @@ def benchmark(run_id: str):
             return updated_rb_state
 
         @jax.jit
-        def play_and_train(step_id:jax.Array, dqn_state: jax_discrete_dqns.double_dqn.State, rb_state: fast_prioritised_rb.State, epsilon: jax.Array) -> tuple[jax.Array, jax.Array, jax_discrete_dqns.double_dqn.State, fast_prioritised_rb.State, jax.Array, jax.Array, jax.Array]:
+        def play_and_train(step_id: jax.Array, dqn_state: jax_discrete_dqns.double_dqn.State, rb_state: fast_prioritised_rb.State, epsilon: jax.Array) -> tuple[jax.Array, jax.Array, jax_discrete_dqns.double_dqn.State, fast_prioritised_rb.State, jax.Array, jax.Array, jax.Array]:
 
             def cond_fun(carry: tuple[jax.Array, jax.Array, jax_discrete_dqns.double_dqn.State, fast_prioritised_rb.State, jax.Array, jax.Array, jax.Array, jax.Array, jax.Array]) -> jax.Array:
                 i, step_id, dqn_state, rb_state, next_observation, done, epsilon, episode_rewards, episode_losses = carry
@@ -259,6 +259,12 @@ def benchmark(run_id: str):
 
             return episode_length, updated_rb_state, episode_observations, done
 
+        @jax.jit
+        def train_and_evaluate(step_id: jax.Array, dqn_state: jax_discrete_dqns.double_dqn.State, rb_state: fast_prioritised_rb.State, epsilon: jax.Array):
+            step_id, episode_length, dqn_state, rb_state, epsilon, episode_rewards, episode_losses, = play_and_train(step_id, dqn_state, rb_state, epsilon)
+            evaluate_episode_length, rb_state, evaluate_episode_observations, evaluate_has_reached_goal = evaluate_episode(dqn_state.network, rb_state)
+            return step_id, dqn_state, rb_state, epsilon, episode_rewards, episode_losses, episode_length, evaluate_episode_observations, evaluate_episode_length, evaluate_has_reached_goal
+            
         # We pad the buffer with random transitions to ensure we don't trigger recompilation.
         rb_state = generate_random_rb()
 
@@ -270,14 +276,12 @@ def benchmark(run_id: str):
         for episode_id in range(max_episodes):
             episode_loss_list.clear()
             episode_reward_list.clear()
-            step_id, episode_length, dqn_state, rb_state, epsilon, episode_rewards, episode_losses, = play_and_train(step_id, dqn_state, rb_state, epsilon)
+
+            step_id, dqn_state, rb_state, epsilon, episode_rewards, episode_losses, episode_length, evaluate_episode_observations, evaluate_episode_length, evaluate_has_reached_goal = train_and_evaluate(step_id, dqn_state, rb_state, epsilon)
             episode_reward_list.extend((x.item() for x in episode_rewards[:episode_length]))
-            episode_loss_list.extend((x.item() for x in episode_losses[:episode_length]))
-
-
-            episode_length, rb_state, episode_observations, has_reached_goal = evaluate_episode(dqn_state.network, rb_state)
-            observations = episode_observations[:episode_length+1]
-            has_reached_goal = has_reached_goal.item()
+            episode_loss_list.extend((x.item() for x in episode_losses[:evaluate_episode_length]))
+            observations = evaluate_episode_observations[:episode_length+1]
+            has_reached_goal = evaluate_has_reached_goal.item()
             evaluate_reached_goal_count += has_reached_goal
 
             if episode_reward_list:
