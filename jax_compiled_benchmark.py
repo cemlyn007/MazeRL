@@ -264,52 +264,69 @@ def benchmark(run_id: str):
             step_id, episode_length, dqn_state, rb_state, epsilon, episode_rewards, episode_losses, = play_and_train(step_id, dqn_state, rb_state, epsilon)
             evaluate_episode_length, rb_state, evaluate_episode_observations, evaluate_has_reached_goal = evaluate_episode(dqn_state.network, rb_state)
             return step_id, dqn_state, rb_state, epsilon, episode_rewards, episode_losses, episode_length, evaluate_episode_observations, evaluate_episode_length, evaluate_has_reached_goal
+        
+        @jax.jit
+        def train_and_evaluate_many(step_id: jax.Array, dqn_state: jax_discrete_dqns.double_dqn.State, rb_state: fast_prioritised_rb.State, epsilon: jax.Array):
+            def body_fun(i: jax.Array, carry):
+                step_id, dqn_state, rb_state, epsilon, episodes_rewards, episodes_losses, episodes_length, evaluate_episodes_observations, evaluate_episodes_length, evaluates_has_reached_goal = carry
+                step_id, dqn_state, rb_state, epsilon, episode_rewards, episode_losses, episode_length, evaluate_episode_observations, evaluate_episode_length, evaluate_has_reached_goal = train_and_evaluate(step_id, dqn_state, rb_state, epsilon)
+                episodes_rewards = episodes_rewards.at[i].set(episode_rewards)
+                episodes_losses = episodes_losses.at[i].set(episode_losses)
+                episodes_length = episodes_length.at[i].set(episode_length)
+                evaluate_episodes_observations = evaluate_episodes_observations.at[i].set(evaluate_episode_observations)
+                evaluate_episodes_length = evaluate_episodes_length.at[i].set(evaluate_episode_length)
+                evaluates_has_reached_goal = evaluates_has_reached_goal.at[i].set(evaluate_has_reached_goal)
+                return step_id, dqn_state, rb_state, epsilon, episodes_rewards, episodes_losses, episodes_length, evaluate_episodes_observations, evaluate_episodes_length, evaluates_has_reached_goal
+            return jax.lax.fori_loop(0, max_episodes, body_fun, (
+                step_id,
+                dqn_state,
+                rb_state,
+                epsilon,
+                jnp.empty((max_episodes, max_steps)),
+                jnp.empty((max_episodes, max_steps)),
+                jnp.empty((max_episodes,), dtype=jnp.int32),
+                jnp.empty((max_episodes, evaluate_max_steps+1, 2)),
+                jnp.empty((max_episodes,), dtype=jnp.int32),
+                jnp.empty((max_episodes,), dtype=bool),
+            ))
             
         # We pad the buffer with random transitions to ensure we don't trigger recompilation.
         rb_state = generate_random_rb()
 
         train_q_network = jax.jit(dqn.train_q_network)
 
-        step_id = 0
-        episode_loss_list = []
-        episode_reward_list = []
+        writer.add_scalar("epsilon", epsilon, 0)
+        step_id, dqn_state, rb_state, epsilon, episodes_rewards, episodes_losses, episodes_length, evaluate_episodes_observations, evaluate_episodes_length, evaluates_has_reached_goal = train_and_evaluate_many(0, dqn_state, rb_state, epsilon)
+        episodes_rewards = np.asarray(episodes_rewards)
+        episodes_losses = np.asarray(episodes_losses)
+        episodes_length = np.asarray(episodes_length)
+        evaluate_episodes_observations = np.asarray(evaluate_episodes_observations)
+        evaluates_has_reached_goal = np.asarray(evaluates_has_reached_goal)
+
         for episode_id in range(max_episodes):
-            episode_loss_list.clear()
-            episode_reward_list.clear()
+            rewards = episodes_rewards[episode_id, :episodes_length[episode_id]]
+            step_losses = episodes_losses[episode_id, :episodes_length[episode_id]]
+            observations = evaluate_episodes_observations[episode_id, :evaluate_episodes_length[episode_id]+1]
+            has_reached_goal = evaluates_has_reached_goal[episode_id].item()
+            evaluate_reached_goal_count = np.sum(evaluates_has_reached_goal[:episode_id+1]).item()
 
-            step_id, dqn_state, rb_state, epsilon, episode_rewards, episode_losses, episode_length, evaluate_episode_observations, evaluate_episode_length, evaluate_has_reached_goal = train_and_evaluate(step_id, dqn_state, rb_state, epsilon)
-            episode_reward_list.extend((x.item() for x in episode_rewards[:episode_length]))
-            episode_loss_list.extend((x.item() for x in episode_losses[:evaluate_episode_length]))
-            observations = evaluate_episode_observations[:episode_length+1]
-            has_reached_goal = evaluate_has_reached_goal.item()
-            evaluate_reached_goal_count += has_reached_goal
-
-            if episode_reward_list:
-                rewards = np.array(episode_reward_list)
+            if len(rewards):
                 log("reward", rewards, episode_id)
                 writer.add_histogram("reward_dist", rewards, episode_id)
                 writer.add_hparams(hyperparameters, metrics(rewards))
 
-            if episode_loss_list:
-                step_losses = np.array(episode_loss_list)
+            if len(step_losses):
                 log("loss", step_losses, episode_id)
 
             writer.add_scalar("reached_goal", has_reached_goal, episode_id)
             writer.add_scalar("reached_goal_count", evaluate_reached_goal_count, episode_id)
-            writer.add_scalar("epsilon", epsilon.item(), episode_id)
-
-            get_q_values.update_q_network(dqn_state.network)            
             rollout_tool.set_states(np.asarray(observations))
-            if display_tools:
-                rollout_tool.draw()
-                log_greedy_policy(draw=False)
-                rollout_tool.show()
-                actions_tool.draw()
-                log_greedy_actions_map(draw=False)
-                actions_tool.show()
-            else:
-                log_greedy_policy()
-                log_greedy_actions_map()
+            log_greedy_policy()
+
+        writer.add_scalar("epsilon", epsilon.item(), episode_id)
+
+        get_q_values.update_q_network(dqn_state.network)
+        log_greedy_actions_map()
         print(f"Reached goal: {evaluate_reached_goal_count}")
 
 
