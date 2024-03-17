@@ -16,12 +16,12 @@ class State(NamedTuple):
 
 
 class StatelessDiscreteDoubleDQN:
-    def __init__(self, hps: helpers.JaxHyperparameters, n_actions: int) -> None:
+    def __init__(self, hps: helpers.JaxHyperparameters, n_actions: int, optimizer: optax.GradientTransformation) -> None:
         self._hps = hps
         self._n_actions = n_actions
         self.q_network = network.DiscreteNetwork(2, n_actions)
         self._params = self.q_network.init(jax.random.PRNGKey(0), jnp.ones((1, 2), jnp.float32))
-        self.optimizer = optax.sgd(self._hps.lr)
+        self.optimizer = optimizer
 
     def reset(self) -> State:
         params = self.q_network.init(jax.random.PRNGKey(0), jnp.ones((1, 2), jnp.float32))
@@ -105,7 +105,7 @@ class StatelessDiscreteDoubleDQN:
 
 class DiscreteDoubleDQN(abstract_dqns.dqn.AbstractDQN):
     def __init__(self, hps: helpers.JaxHyperparameters, n_actions: int, device: jax.Device):
-        self._stateless_dqn = StatelessDiscreteDoubleDQN(hps, n_actions)
+        self._stateless_dqn = StatelessDiscreteDoubleDQN(hps, n_actions, optax.sgd(hps.lr))
         self._state = self._stateless_dqn.reset()
         self._device = device
         self._train_q_network = jax.jit(self._stateless_dqn.train_q_network)
